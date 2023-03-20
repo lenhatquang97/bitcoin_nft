@@ -2,17 +2,23 @@ package initial
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/m25lab/bitcoin_nft/configs"
 )
 
 func CreateConnection() *rpcclient.Client {
-	// Set up connection parameters
+	loadedConfig := configs.ParseConfig()
 	rpcConfig := &rpcclient.ConnConfig{
-		Host:         "localhost:8332",
-		User:         "rpcuser",
-		Pass:         "rpcpassword",
-		HTTPPostMode: true,
+		Host:                 fmt.Sprintf("localhost:%d", loadedConfig.RpcPort),
+		Endpoint:             loadedConfig.Endpoint,
+		User:                 loadedConfig.RpcUser,
+		Pass:                 loadedConfig.RpcPass,
+		DisableAutoReconnect: false,
+		DisableConnectOnNew:  true,
+		DisableTLS:           true,
 	}
 
 	// Connect to the Bitcoin RPC server
@@ -22,4 +28,16 @@ func CreateConnection() *rpcclient.Client {
 		return nil
 	}
 	return client
+}
+
+func ReadCAFile() []byte {
+	//Need to make sure that you have disabled client TLS
+	var certs []byte
+	var err error
+	certs, err = os.ReadFile(configs.GetRpcCert())
+	if err != nil {
+		log.Printf("Cannot open CA file: %v", err)
+		certs = nil
+	}
+	return certs
 }

@@ -7,6 +7,8 @@ import (
 )
 
 func main() {
-	_, addr := initial.GenerateBTCAddress(initial.P2TR)
-	fmt.Println(addr)
+	// _, addr := initial.GenerateBTCAddress(initial.P2TR)
+	// fmt.Println(addr)
+	loadedConfig := initial.ReadCAFile()
+	fmt.Println(loadedConfig)
 }
