@@ -1,0 +1,5 @@
+package nft
+
+func EmbedNft() {
+
+}

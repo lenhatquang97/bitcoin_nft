@@ -9,16 +9,18 @@ import (
 	"github.com/m25lab/bitcoin_nft/configs"
 )
 
-func CreateConnection() *rpcclient.Client {
-	loadedConfig := configs.ParseConfig()
+type BtcConnection struct {
+	Host, RpcUser, RpcPass   string
+	HTTPPostMode, DisableTLS bool
+}
+
+func (conn *BtcConnection) CreateConnection() *rpcclient.Client {
 	rpcConfig := &rpcclient.ConnConfig{
-		Host:                 fmt.Sprintf("localhost:%d", loadedConfig.RpcPort),
-		Endpoint:             loadedConfig.Endpoint,
-		User:                 loadedConfig.RpcUser,
-		Pass:                 loadedConfig.RpcPass,
-		DisableAutoReconnect: false,
-		DisableConnectOnNew:  true,
-		DisableTLS:           true,
+		Host:         conn.Host,
+		User:         conn.RpcUser,
+		Pass:         conn.RpcPass,
+		HTTPPostMode: conn.HTTPPostMode,
+		DisableTLS:   conn.DisableTLS,
 	}
 
 	// Connect to the Bitcoin RPC server
@@ -28,6 +30,17 @@ func CreateConnection() *rpcclient.Client {
 		return nil
 	}
 	return client
+}
+
+func InitConnectionFromScript() *BtcConnection {
+	loadedConfig := configs.ParseConfig()
+	return &BtcConnection{
+		Host:         fmt.Sprintf("localhost:%d", loadedConfig.RpcPort),
+		RpcUser:      loadedConfig.RpcUser,
+		RpcPass:      loadedConfig.RpcPass,
+		HTTPPostMode: true,
+		DisableTLS:   true,
+	}
 }
 
 func ReadCAFile() []byte {
