@@ -7,7 +7,6 @@ import (
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/m25lab/bitcoin_nft/src/transaction"
 )
 
 const (
@@ -24,7 +23,7 @@ type NftFile struct {
 }
 
 // TODO: Retrieve NftFile from Transaction
-func ParseNftFileFromTx(tx *transaction.Tx) {
+func ParseNftFileFromTx(tx *wire.MsgTx) {
 
 }
 
@@ -79,6 +78,28 @@ func NftRevealScriptBuilder(nftFile *NftFile) *txscript.ScriptBuilder {
 	}
 	builder = *builder.AddOp(txscript.OP_ENDIF)
 	return &builder
+}
+
+func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, input *wire.OutPoint, output *wire.TxOut, script []byte) (*wire.MsgTx, int) {
+	emptyScript, _ := txscript.NewScriptBuilder().Script()
+	emptyWitness := wire.TxWitness{}
+	revealTx := wire.MsgTx{
+		Version:  1,
+		LockTime: 0,
+		TxIn: []*wire.TxIn{
+			{
+				PreviousOutPoint: *input,
+				SignatureScript:  emptyScript,
+				Witness:          emptyWitness,
+				Sequence:         0,
+			},
+		},
+		TxOut: []*wire.TxOut{output},
+	}
+
+	//TODO: Need to calculate fee
+	actualFee := 1000
+	return &revealTx, actualFee
 }
 
 func ToWitness(builder *txscript.ScriptBuilder) wire.TxWitness {
