@@ -2,6 +2,9 @@ package nft
 
 import (
 	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/mempool"
 	"log"
 	"os"
 
@@ -80,7 +83,7 @@ func NftRevealScriptBuilder(nftFile *NftFile) *txscript.ScriptBuilder {
 	return &builder
 }
 
-func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, input *wire.OutPoint, output *wire.TxOut, script []byte) (*wire.MsgTx, int) {
+func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, input *wire.OutPoint, output *wire.TxOut, script []byte) (*wire.MsgTx, btcutil.Amount) {
 	emptyScript, _ := txscript.NewScriptBuilder().Script()
 	emptyWitness := wire.TxWitness{}
 	revealTx := wire.MsgTx{
@@ -98,7 +101,19 @@ func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, i
 	}
 
 	//TODO: Need to calculate fee
-	actualFee := 1000
+	copyTx := revealTx.Copy()
+
+	copyTx.TxIn[0].Witness = append(copyTx.TxIn[0].Witness, []byte{0, schnorr.SignatureSize})
+
+	ctrlBlockByte, err := ctrlBlock.ToBytes()
+	if err != nil {
+		log.Println(err)
+	}
+	copyTx.TxIn[0].Witness = append(copyTx.TxIn[0].Witness, ctrlBlockByte)
+	txSize := mempool.GetTxVirtualSize(btcutil.NewTx(copyTx))
+
+	actualFee := btcutil.Amount(feeRate * float64(txSize))
+
 	return &revealTx, actualFee
 }
 
