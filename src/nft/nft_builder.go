@@ -127,3 +127,17 @@ func ToWitness(builder *txscript.ScriptBuilder) wire.TxWitness {
 	witness[1] = make([]byte, 0)
 	return witness
 }
+
+func CalculateFee(tx *wire.MsgTx, utxos map[wire.OutPoint]btcutil.Amount) btcutil.Amount {
+	var sumTxIn btcutil.Amount
+	for _, v := range tx.TxIn {
+		sumTxIn += utxos[v.PreviousOutPoint]
+	}
+
+	var sumTxOut int64
+	for _, v := range tx.TxOut {
+		sumTxOut += v.Value
+	}
+
+	return sumTxIn - btcutil.Amount(sumTxOut)
+}
