@@ -1,6 +1,6 @@
 package nft
 
-func EmbedNft(nftFile *NftFile) {
+func EmbedNft(nftFile *Inscription) {
 	//First step: Connect to server
 
 	//Second step: Create UTXOs

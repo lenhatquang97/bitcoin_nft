@@ -1,12 +1,18 @@
 package nft
 
 import (
+	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr/musig2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/mempool"
+	"github.com/m25lab/bitcoin_nft/src"
+	"github.com/m25lab/bitcoin_nft/src/enum"
 	"log"
 	"os"
+	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
 
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -20,12 +26,12 @@ const (
 	CHUNK_SIZE       = MAXIMUM_BYTE / 6
 )
 
-type NftFile struct {
+type Inscription struct {
 	Body        []byte
 	ContentType string
 }
 
-// TODO: Retrieve NftFile from Transaction
+// TODO: Retrieve Inscription from Transaction
 func ParseNftFileFromTx(tx *wire.MsgTx) {
 
 }
@@ -37,7 +43,7 @@ NftFromFile:
 + Get binary file
 + Get mimetype: video/mp4, audio/mp3,...
 */
-func NftFromFile(filePath string) *NftFile {
+func NftFromFile(filePath string) *Inscription {
 	file, err := os.Open(filePath)
 	if err != nil {
 		panic(err)
@@ -64,11 +70,11 @@ func NftFromFile(filePath string) *NftFile {
 		panic(err)
 	}
 
-	return &NftFile{Body: binFile, ContentType: contentType}
+	return &Inscription{Body: binFile, ContentType: contentType}
 }
 
 // Reveal Script
-func NftRevealScriptBuilder(nftFile *NftFile) *txscript.ScriptBuilder {
+func NftRevealScriptBuilder(nftFile *Inscription) *txscript.ScriptBuilder {
 	builder := txscript.ScriptBuilder{}
 	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddData([]byte(PROTOCOL_TAG))
 
@@ -140,4 +146,59 @@ func CalculateFee(tx *wire.MsgTx, utxos map[wire.OutPoint]btcutil.Amount) btcuti
 	}
 
 	return sumTxIn - btcutil.Amount(sumTxOut)
+}
+
+func CreateInscriptionTransaction(satpoint *src.SatPoint,
+	inscription *Inscription,
+	inscriptions map[src.SatPoint]src.InscriptionId,
+	network enum.NetWorkValue,
+	utxos map[wire.OutPoint]btcutil.Amount,
+	change []btcutil.Address,
+	destination btcutil.Address,
+	commitFeeRate float64,
+	revealFeeRate float64,
+	noLimit bool,
+) (*wire.MsgTx, *wire.MsgTx, *musig2.KeyTweakDesc, error) {
+	var satP *src.SatPoint
+	if satpoint != nil {
+		satP = satpoint
+	} else {
+		inscribeUtxos := make(map[wire.OutPoint]string) // find about set in golang
+		for inscrp := range inscriptions {
+			inscribeUtxos[inscrp.OutPoint] = ""
+		}
+		for outpoint := range utxos {
+			_, ok := inscribeUtxos[outpoint]
+			if !ok {
+				satP = &src.SatPoint{
+					OutPoint: outpoint,
+					OffSet:   0,
+				}
+				break
+			}
+		}
+	}
+
+	for inscribedSatpoint, inscriptionId := range inscriptions {
+		if satpoint == nil {
+			continue
+		}
+
+		if inscribedSatpoint == *satpoint {
+			return nil, nil, nil, errors.New(fmt.Sprintf("Sat at %v sat poiont already inscribed", satpoint))
+		}
+
+		if inscribedSatpoint.OutPoint == satpoint.OutPoint {
+			return nil, nil, nil, errors.New(fmt.Sprintf("utxo already inscribed %v on sat %v", inscriptionId, inscribedSatpoint))
+		}
+	}
+
+	privKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	pubKey := privKey.PubKey()
+	//revealScript := inscription.
+	//txscript.PushedData()
 }
