@@ -7,9 +7,9 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr/musig2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/m25lab/bitcoin_nft/src"
-	"github.com/m25lab/bitcoin_nft/src/enum"
 	"log"
 	"os"
 	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
@@ -74,8 +74,7 @@ func NftFromFile(filePath string) *Inscription {
 }
 
 // Reveal Script
-func NftRevealScriptBuilder(nftFile *Inscription) *txscript.ScriptBuilder {
-	builder := txscript.ScriptBuilder{}
+func NftRevealScriptBuilder(nftFile *Inscription, builder txscript.ScriptBuilder) *txscript.ScriptBuilder {
 	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddData([]byte(PROTOCOL_TAG))
 
 	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
@@ -87,6 +86,10 @@ func NftRevealScriptBuilder(nftFile *Inscription) *txscript.ScriptBuilder {
 	}
 	builder = *builder.AddOp(txscript.OP_ENDIF)
 	return &builder
+}
+
+func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) ([]byte, error) {
+	return NftRevealScriptBuilder(nftFile, builder).Script()
 }
 
 func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, input *wire.OutPoint, output *wire.TxOut, script []byte) (*wire.MsgTx, btcutil.Amount) {
@@ -151,7 +154,7 @@ func CalculateFee(tx *wire.MsgTx, utxos map[wire.OutPoint]btcutil.Amount) btcuti
 func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	inscription *Inscription,
 	inscriptions map[src.SatPoint]src.InscriptionId,
-	network enum.NetWorkValue,
+	network *chaincfg.Params,
 	utxos map[wire.OutPoint]btcutil.Amount,
 	change []btcutil.Address,
 	destination btcutil.Address,
@@ -201,4 +204,32 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	pubKey := privKey.PubKey()
 	//revealScript := inscription.
 	//txscript.PushedData()
+	builder := txscript.ScriptBuilder{}
+	builder = *builder.AddData(pubKey.SerializeUncompressed()).AddOp(txscript.OP_CHECKSIG) // compress or un compress
+	revealScript, err := NftRevealScript(inscription, builder)
+
+	tapLeafSpendInfo := txscript.TapLeaf{
+		LeafVersion: txscript.TaprootLeafMask,
+		Script:      revealScript,
+	}
+
+	tapRootSpendInfo := txscript.AssembleTaprootScriptTree(tapLeafSpendInfo)
+	//ctrlBlock :=
+
+	ctrlBlock := tapRootSpendInfo.LeafMerkleProofs[0].ToControlBlock(pubKey)
+	rootHash := tapRootSpendInfo.RootNode.TapHash()
+	outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
+	commitTxAddress, err := btcutil.NewAddressTaproot(outputKey.SerializeUncompressed(), network)
+
+	_, revealFee := BuildRevealTransaction(&txscript.ControlBlock{
+		InternalKey:     ctrlBlock.InternalKey,
+		OutputKeyYIsOdd: ctrlBlock.OutputKeyYIsOdd,
+		LeafVersion:     ctrlBlock.LeafVersion,
+		InclusionProof:  ctrlBlock.InclusionProof,
+	}, revealFeeRate, nil, &wire.TxOut{
+		Value:    0,
+		PkScript: destination.ScriptAddress(),
+	}, revealScript)
+
+	unsignedCommitTx :=
 }
