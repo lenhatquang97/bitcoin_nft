@@ -92,6 +92,7 @@ func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) ([]by
 	return NftRevealScriptBuilder(nftFile, builder).Script()
 }
 
+// Check lại thiếu param script
 func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, input *wire.OutPoint, output *wire.TxOut, script []byte) (*wire.MsgTx, btcutil.Amount) {
 	emptyScript, _ := txscript.NewScriptBuilder().Script()
 	emptyWitness := wire.TxWitness{}
@@ -231,5 +232,5 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		PkScript: destination.ScriptAddress(),
 	}, revealScript)
 
-	unsignedCommitTx :=
+	unsignedCommitTx := BuildTransactionWithValue()
 }
