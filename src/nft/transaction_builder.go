@@ -6,7 +6,23 @@ import (
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
+	"github.com/m25lab/bitcoin_nft/src/enum"
+	"github.com/m25lab/bitcoin_nft/src/utils"
 )
+
+type TransactionBuilder struct {
+	Amount              map[wire.OutPoint]btcutil.Amount
+	ChangeAddresses     map[btcutil.Address]string
+	FeeRate             float64
+	Inputs              []wire.OutPoint
+	Inscriptions        map[src.SatPoint]src.InscriptionId
+	OutGoing            src.SatPoint
+	Outputs             []utils.Account
+	Recipient           btcutil.Address
+	UnusedChangeAddress []btcutil.Address
+	Utxos               map[wire.OutPoint]string
+	Target              enum.TargetValue
+}
 
 func BuildTransactionWithValue(outGoing src.SatPoint,
 	inscriptions map[src.SatPoint]src.InscriptionId,
@@ -39,21 +55,13 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 		return nil, errors.New("")
 	}
 
-	tx := wire.MsgTx{
-		Version:  1,
-		LockTime: 0,
-		TxIn: []*wire.TxIn{
-			{
-				PreviousOutPoint: *input,
-				SignatureScript:  emptyScript,
-				Witness:          emptyWitness,
-				Sequence:         0,
-			},
-		},
-		TxOut: []*wire.TxOut{output},
-	}
+	transactionBuilder := &TransactionBuilder{}
 
-	return
+	res := BuildTransaction(transactionBuilder)
+
+	return res, nil
 }
 
-func BuildTransaction(tx *)
+func BuildTransaction(transactionBuilder *TransactionBuilder) *wire.MsgTx {
+	return nil
+}

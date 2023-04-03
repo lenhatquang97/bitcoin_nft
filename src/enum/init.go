@@ -14,3 +14,14 @@ var Network = &NetworkEnt{
 	"signet",
 	"regtest",
 }
+
+type TargetValue string
+type TargetEnt struct {
+	PostAge TargetValue
+	Value   TargetValue
+}
+
+var Target = &TargetEnt{
+	"PostAge",
+	"Value",
+}
