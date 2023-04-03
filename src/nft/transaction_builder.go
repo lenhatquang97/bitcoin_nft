@@ -1,8 +1,10 @@
 package nft
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/txscript"
@@ -13,12 +15,15 @@ import (
 )
 
 const (
-	ADDITIONAL_INPUT_VBYTES = 58
+	ADDITIONAL_INPUT_VBYTES  = 58
+	MAX_POSTAGE              = 2 * 10000
+	TARGET_POSTAGE           = 10000
+	ADDITIONAL_OUTPUT_VBYTES = 43
 )
 
 type TransactionBuilder struct {
 	Amounts             map[wire.OutPoint]btcutil.Amount
-	ChangeAddresses     map[btcutil.Address]string
+	ChangeAddresses     []btcutil.Address
 	FeeRate             float64
 	Inputs              []wire.OutPoint
 	Inscriptions        map[src.SatPoint]src.InscriptionId
@@ -28,12 +33,14 @@ type TransactionBuilder struct {
 	UnusedChangeAddress []btcutil.Address
 	Utxos               map[wire.OutPoint]string
 	Target              enum.TargetValue
+	OutputValue         btcutil.Amount
 }
 
 func BuildTransactionWithValue(outGoing src.SatPoint,
 	inscriptions map[src.SatPoint]src.InscriptionId,
 	amount map[wire.OutPoint]btcutil.Amount,
 	recipient btcutil.Address,
+	change []btcutil.Address,
 	feeRate float64,
 	outputValue btcutil.Amount) (*wire.MsgTx, error) {
 
@@ -63,11 +70,38 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 		return nil, errors.New("")
 	}
 
-	transactionBuilder := &TransactionBuilder{}
+	transactionBuilder := &TransactionBuilder{
+		OutGoing:        outGoing,
+		Inscriptions:    inscriptions,
+		Amounts:         amount,
+		Recipient:       recipient,
+		ChangeAddresses: change,
+		FeeRate:         feeRate,
+		Target:          enum.Target.Value,
+		OutputValue:     outputValue,
+	}
 
-	res := BuildTransaction(transactionBuilder)
+	return BuildTransaction(transactionBuilder)
+}
 
-	return res, nil
+func BuildTransactionWithPostage(outGoing src.SatPoint,
+	inscriptions map[src.SatPoint]src.InscriptionId,
+	amount map[wire.OutPoint]btcutil.Amount,
+	recipient btcutil.Address,
+	change []btcutil.Address,
+	feeRate float64) (*wire.MsgTx, error) {
+
+	transactionBuilder := &TransactionBuilder{
+		OutGoing:        outGoing,
+		Inscriptions:    inscriptions,
+		Amounts:         amount,
+		Recipient:       recipient,
+		ChangeAddresses: change,
+		FeeRate:         feeRate,
+		Target:          enum.Target.Value,
+	}
+
+	return BuildTransaction(transactionBuilder)
 }
 
 func SelectOutGoing(transactionBuilder *TransactionBuilder) (*TransactionBuilder, error) {
@@ -217,7 +251,7 @@ func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
 	var minValue btcutil.Amount
 	if builder.Target == enum.Target.Value {
 		address := builder.Outputs[len(builder.Outputs)-1].Address.ScriptAddress()
-		minValue = btcutil.Amount(mempool.GetDustThreshold(&wire.TxOut{
+		minValue = builder.OutputValue + btcutil.Amount(mempool.GetDustThreshold(&wire.TxOut{
 			Value:    0,
 			PkScript: address,
 		}))
@@ -242,15 +276,190 @@ func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
 }
 
 func StripValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
+	satOffset, err := CalculateSatOffset(builder)
+	if err != nil {
+		return builder, err
+	}
 
+	var totalOutputAmount btcutil.Amount
+	isFind := false
+	for _, acc := range builder.Outputs {
+		if acc.Address == builder.Recipient {
+			isFind = true
+		}
+		totalOutputAmount += acc.Amount
+	}
+
+	if !isFind {
+		return builder, errors.New("couldn't find output that contain the index")
+	}
+
+	value := totalOutputAmount - btcutil.Amount(satOffset)
+	excess := value - Fee(builder.FeeRate, float64(EstimateVbytes(builder)))
+	var maxAmount, targetAmount btcutil.Amount
+	if builder.Target == enum.Target.PostAge {
+		maxAmount, targetAmount = MAX_POSTAGE, TARGET_POSTAGE
+	} else if builder.Target == enum.Target.Value {
+		// do nothing
+	} else {
+		return builder, errors.New("Transaction builder - Target field is invalid!")
+	}
+
+	res := value - targetAmount
+	amount := btcutil.Amount(mempool.GetDustThreshold(&wire.TxOut{PkScript: builder.UnusedChangeAddress[len(builder.UnusedChangeAddress)-1].ScriptAddress()})) + Fee(builder.FeeRate, ADDITIONAL_OUTPUT_VBYTES)
+	if excess > maxAmount && res > amount {
+		fmt.Printf("stripped %v sat", res)
+		address := builder.UnusedChangeAddress[0]
+		builder.UnusedChangeAddress = append(builder.UnusedChangeAddress[:1], builder.UnusedChangeAddress[2:]...)
+		builder.Outputs = append(builder.Outputs, utils.Account{
+			Address: address,
+			Amount:  res,
+		})
+	}
+
+	return builder, nil
 }
 
 func DeductFee(builder *TransactionBuilder) (*TransactionBuilder, error) {
+	satOffset, err := CalculateSatOffset(builder)
+	if err != nil {
+		fmt.Println(err)
+		return builder, err
+	}
 
+	estimateFee := EstimateFee(builder)
+	var totalOutputAmount btcutil.Amount
+	for _, acc := range builder.Outputs {
+		totalOutputAmount += acc.Amount
+	}
+
+	acc := builder.Outputs[len(builder.Outputs)-1]
+	if totalOutputAmount-estimateFee <= btcutil.Amount(satOffset) {
+		return builder, errors.New("invariant: deducting fee does not consume sat")
+	}
+
+	if acc.Amount < estimateFee {
+		fmt.Printf("invariant: last output can pay fee: %v %v", acc.Amount, estimateFee)
+	}
+
+	return builder, nil
 }
 
 func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
+	recipient := builder.Recipient.ScriptAddress()
+	var txIns []*wire.TxIn
+	var txOuts []*wire.TxOut
+	for _, outpoint := range builder.Inputs {
+		emptyScript, _ := txscript.NewScriptBuilder().Script()
+		emptyWitness := wire.TxWitness{}
+		txIns = append(txIns, &wire.TxIn{
+			PreviousOutPoint: outpoint,
+			Sequence:         ENABLE_RBF_NO_LOCKTIME,
+			SignatureScript:  emptyScript,
+			Witness:          emptyWitness,
+		})
+	}
 
+	for _, output := range builder.Outputs {
+		txOuts = append(txOuts, &wire.TxOut{
+			Value:    int64(output.Amount),
+			PkScript: output.Address.ScriptAddress(),
+		})
+	}
+	tx := &wire.MsgTx{
+		Version:  1,
+		LockTime: 0,
+		TxIn:     txIns,
+		TxOut:    txOuts,
+	}
+
+	// check out going sat contain in utxos
+
+	// check input spend out going sat
+
+	var satOffset int64
+	isFind := false
+	for _, txIn := range tx.TxIn {
+		if txIn.PreviousOutPoint == builder.OutGoing.OutPoint {
+			satOffset += builder.OutGoing.OffSet
+			isFind = true
+			break
+		} else {
+			satOffset += int64(builder.Amounts[txIn.PreviousOutPoint])
+		}
+	}
+
+	// check isFind
+	if !isFind {
+
+	}
+
+	var outputEnd int64
+	isFind = false
+	for _, txOut := range tx.TxOut {
+		outputEnd += txOut.Value
+		if outputEnd > satOffset {
+			// check script pubkey and recipient
+			if !bytes.Equal(recipient, txOut.PkScript) {
+				// return err
+			}
+			isFind = true
+			break
+		}
+	}
+
+	// check found
+	if !isFind {
+
+	}
+
+	//      "invariant: recipient address appears exactly once in outputs",
+
+	//       "invariant: change addresses appear at most once in outputs",
+
+	var offset int64
+	for _, output := range tx.TxOut {
+		if bytes.Equal(builder.Recipient.ScriptAddress(), output.PkScript) {
+			slop := Fee(builder.FeeRate, ADDITIONAL_OUTPUT_VBYTES)
+			fmt.Println(slop)
+
+			// check asert value
+		} else {
+
+			// check asert value
+		}
+
+		offset += output.Value
+	}
+
+	var actualFee btcutil.Amount
+	for _, txIn := range tx.TxIn {
+		actualFee += builder.Amounts[txIn.PreviousOutPoint]
+	}
+
+	for _, txOut := range tx.TxOut {
+		actualFee -= btcutil.Amount(txOut.Value)
+	}
+
+	copyTx := tx.Copy()
+
+	for _, txIn := range copyTx.TxIn {
+		txIn.Witness = append(txIn.Witness, []byte{0, schnorr.SignatureSize})
+	}
+
+	txSize := mempool.GetTxVirtualSize(btcutil.NewTx(copyTx))
+	expectedFee := Fee(builder.FeeRate, float64(txSize))
+
+	if actualFee != expectedFee {
+		// alert err
+	}
+
+	for _, txOut := range tx.TxOut {
+		// assert err
+		fmt.Println(txOut)
+	}
+
+	return tx, nil
 }
 
 func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoint *wire.OutPoint, amount btcutil.Amount, err error) {
@@ -287,6 +496,36 @@ func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoi
 	return
 }
 
-func BuildTransaction(transactionBuilder *TransactionBuilder) *wire.MsgTx {
-	return nil
+func BuildTransaction(transactionBuilder *TransactionBuilder) (*wire.MsgTx, error) {
+	tx, err := SelectOutGoing(transactionBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = AlignOutGoing(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = PadAlignmentOutput(transactionBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = AddValue(transactionBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = StripValue(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err = DeductFee(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return Build(tx)
 }

@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	MAXIMUM_BYTE     = 3 * 1024 * 1024
-	PROTOCOL_TAG     = "M25"
-	BODY_TAG         = "BodyM25"
-	CONTENT_TYPE_TAG = "ContentTypeM25"
-	CHUNK_SIZE       = MAXIMUM_BYTE / 6
+	MAXIMUM_BYTE           = 3 * 1024 * 1024
+	PROTOCOL_TAG           = "M25"
+	BODY_TAG               = "BodyM25"
+	CONTENT_TYPE_TAG       = "ContentTypeM25"
+	CHUNK_SIZE             = MAXIMUM_BYTE / 6
+	ENABLE_RBF_NO_LOCKTIME = 0xFFFFFFFD
 )
 
 type Inscription struct {
