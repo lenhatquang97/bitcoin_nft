@@ -122,7 +122,7 @@ func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, i
 	copyTx.TxIn[0].Witness = append(copyTx.TxIn[0].Witness, ctrlBlockByte)
 	txSize := mempool.GetTxVirtualSize(btcutil.NewTx(copyTx))
 
-	actualFee := btcutil.Amount(feeRate * float64(txSize))
+	actualFee := Fee(feeRate, float64(txSize))
 
 	return &revealTx, actualFee
 }

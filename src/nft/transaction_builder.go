@@ -11,6 +11,10 @@ import (
 	"github.com/m25lab/bitcoin_nft/src/utils"
 )
 
+const (
+	ADDITIONAL_INPUT_VBYTES = 58
+)
+
 type TransactionBuilder struct {
 	Amounts             map[wire.OutPoint]btcutil.Amount
 	ChangeAddresses     map[btcutil.Address]string
@@ -161,8 +165,38 @@ func PadAlignmentOutput(transactionBuilder *TransactionBuilder) (*TransactionBui
 	return transactionBuilder, nil
 }
 
-func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
+func EstimateFee(builder *TransactionBuilder) btcutil.Amount {
 
+}
+
+func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
+	estimateFee := EstimateFee(builder)
+
+	var minValue btcutil.Amount
+	if builder.Target == enum.Target.Value {
+		address := builder.Outputs[len(builder.Outputs)-1].Address.ScriptAddress()
+		minValue = mempool.GetDustThreshold(&wire.TxOut{
+			Value:    0,
+			PkScript: address,
+		})
+	} else if builder.Target == enum.Target.PostAge {
+		minValue = 0
+	}
+
+	total := minValue + estimateFee
+	deficit := total - builder.Outputs[len(builder.Outputs)-1].Amount
+	if deficit > 0 {
+		needed := deficit + Fee(builder.FeeRate, float64(ADDITIONAL_INPUT_VBYTES))
+		utxo, value, err := SelectCardinalUtxo(builder, int64(needed))
+		if err != nil {
+			return builder, err
+		}
+		builder.Inputs = append(builder.Inputs, *utxo)
+		builder.Outputs[len(builder.Outputs)-1].Amount += value
+		fmt.Printf("added %v sat input to cover %v sat deficit", value, deficit)
+	}
+
+	return builder, nil
 }
 
 func StripValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
