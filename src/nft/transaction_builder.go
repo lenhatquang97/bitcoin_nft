@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/mempool"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
@@ -70,7 +71,7 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 }
 
 func SelectOutGoing(transactionBuilder *TransactionBuilder) (*TransactionBuilder, error) {
-	for inscribeSatPoint, inscriptionId := range transactionBuilder.Inscriptions {
+	for inscribeSatPoint, _ := range transactionBuilder.Inscriptions {
 		if transactionBuilder.OutGoing.OutPoint == inscribeSatPoint.OutPoint &&
 			transactionBuilder.OutGoing.OffSet != inscribeSatPoint.OffSet {
 			return nil, errors.New("_UTXO_CONTAIN_ADDITIONAL_TRANSACTION_")
@@ -165,8 +166,49 @@ func PadAlignmentOutput(transactionBuilder *TransactionBuilder) (*TransactionBui
 	return transactionBuilder, nil
 }
 
-func EstimateFee(builder *TransactionBuilder) btcutil.Amount {
+func EstimateVbyteWith(inputs int64, outputs []btcutil.Address) btcutil.Amount {
+	var txIn []*wire.TxIn
+	var txOut []*wire.TxOut
+	for i := 0; i < int(inputs); i++ {
+		emptyScript, _ := txscript.NewScriptBuilder().Script()
+		emptyWitness := wire.TxWitness{}
+		txIn = append(txIn, &wire.TxIn{
+			PreviousOutPoint: wire.OutPoint{},
+			SignatureScript:  emptyScript,
+			Witness:          emptyWitness,
+			Sequence:         0,
+		})
+	}
 
+	for _, address := range outputs {
+		txOut = append(txOut, &wire.TxOut{
+			Value:    0,
+			PkScript: address.ScriptAddress(),
+		})
+	}
+
+	tx := wire.MsgTx{
+		Version:  1,
+		LockTime: 0,
+		TxIn:     txIn,
+		TxOut:    txOut,
+	}
+
+	txSize := mempool.GetTxVirtualSize(btcutil.NewTx(&tx))
+
+	return btcutil.Amount(txSize)
+}
+
+func EstimateVbytes(builder *TransactionBuilder) btcutil.Amount {
+	var addresses []btcutil.Address
+	for _, acc := range builder.Outputs {
+		addresses = append(addresses, acc.Address)
+	}
+	return EstimateVbyteWith(int64(len(builder.Inputs)), addresses)
+}
+
+func EstimateFee(builder *TransactionBuilder) btcutil.Amount {
+	return Fee(builder.FeeRate, float64(EstimateVbytes(builder)))
 }
 
 func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
@@ -175,10 +217,10 @@ func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
 	var minValue btcutil.Amount
 	if builder.Target == enum.Target.Value {
 		address := builder.Outputs[len(builder.Outputs)-1].Address.ScriptAddress()
-		minValue = mempool.GetDustThreshold(&wire.TxOut{
+		minValue = btcutil.Amount(mempool.GetDustThreshold(&wire.TxOut{
 			Value:    0,
 			PkScript: address,
-		})
+		}))
 	} else if builder.Target == enum.Target.PostAge {
 		minValue = 0
 	}
