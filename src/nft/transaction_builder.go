@@ -148,12 +148,33 @@ func PadAlignmentOutput(transactionBuilder *TransactionBuilder) (*TransactionBui
 		} else {
 			utxo, size, err := SelectCardinalUtxo(transactionBuilder, dustLimit-int64(transactionBuilder.Outputs[0].Amount))
 			if err != nil {
-
+				fmt.Println(err)
+				return transactionBuilder, err
 			}
+			transactionBuilder.Inputs = append(transactionBuilder.Inputs[1:], transactionBuilder.Inputs...)
+			transactionBuilder.Inputs[0] = *utxo
+			transactionBuilder.Outputs[0].Amount += size
+			fmt.Printf("padded alignment output to %v with additional %v sat input", transactionBuilder.Outputs[0].Amount, size)
 		}
 	}
 
 	return transactionBuilder, nil
+}
+
+func AddValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
+
+}
+
+func StripValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
+
+}
+
+func DeductFee(builder *TransactionBuilder) (*TransactionBuilder, error) {
+
+}
+
+func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
+
 }
 
 func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoint *wire.OutPoint, amount btcutil.Amount, err error) {
