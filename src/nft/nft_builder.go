@@ -34,8 +34,8 @@ type Inscription struct {
 }
 
 // TODO: Retrieve Inscription from Transaction
-func ParseNftFileFromTx(tx *wire.MsgTx) {
-
+func ParseNftFileFromTx(tx *wire.MsgTx) *Inscription {
+	return nil
 }
 
 /*
@@ -73,6 +73,10 @@ func NftFromFile(filePath string) *Inscription {
 	}
 
 	return &Inscription{Body: binFile, ContentType: contentType}
+}
+
+func NftFromTransaction(tx *wire.MsgTx) *Inscription {
+	return ParseNftFileFromTx(tx)
 }
 
 // Reveal Script
@@ -306,4 +310,16 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	// check weight
 
 	return unsignedCommitTx, revealTx, tweakPrivKey, nil
+}
+
+func BackupRecoverKey() {
+
+}
+
+func Run(inscribe *Inscribe) error {
+	return nil
+}
+
+func ContentLength(inscription *Inscription) int {
+	return len(inscription.Body)
 }
