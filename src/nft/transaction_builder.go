@@ -300,7 +300,7 @@ func StripValue(builder *TransactionBuilder) (*TransactionBuilder, error) {
 	if builder.Target == enum.Target.PostAge {
 		maxAmount, targetAmount = MAX_POSTAGE, TARGET_POSTAGE
 	} else if builder.Target == enum.Target.Value {
-		// do nothing
+		maxAmount, targetAmount = builder.OutputValue, builder.OutputValue
 	} else {
 		return builder, errors.New("Transaction builder - Target field is invalid!")
 	}
@@ -444,7 +444,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 	copyTx := tx.Copy()
 
 	for _, txIn := range copyTx.TxIn {
-		txIn.Witness = append(txIn.Witness, []byte{0, schnorr.SignatureSize})
+		txIn.Witness = append(txIn.Witness, make([]byte, schnorr.SignatureSize))
 	}
 
 	txSize := mempool.GetTxVirtualSize(btcutil.NewTx(copyTx))

@@ -1,11 +1,12 @@
 package nft
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
-	"github.com/btcsuite/btcd/btcec/v2/schnorr/musig2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/mempool"
@@ -114,7 +115,7 @@ func BuildRevealTransaction(ctrlBlock *txscript.ControlBlock, feeRate float64, i
 	//TODO: Need to calculate fee
 	copyTx := revealTx.Copy()
 
-	copyTx.TxIn[0].Witness = append(copyTx.TxIn[0].Witness, []byte{0, schnorr.SignatureSize})
+	copyTx.TxIn[0].Witness = append(copyTx.TxIn[0].Witness, make([]byte, schnorr.SignatureSize))
 
 	ctrlBlockByte, err := ctrlBlock.ToBytes()
 	if err != nil {
@@ -163,7 +164,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	commitFeeRate float64,
 	revealFeeRate float64,
 	noLimit bool,
-) (*wire.MsgTx, *wire.MsgTx, *musig2.KeyTweakDesc, error) {
+) (*wire.MsgTx, *wire.MsgTx, *btcec.PrivateKey, error) {
 	var satP *src.SatPoint
 	if satpoint != nil {
 		satP = satpoint
@@ -233,5 +234,76 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		PkScript: destination.ScriptAddress(),
 	}, revealScript)
 
-	unsignedCommitTx := BuildTransactionWithValue()
+	unsignedCommitTx, err := BuildTransactionWithValue(*satP, inscriptions, utxos, commitTxAddress, change, commitFeeRate, revealFee+TARGET_POSTAGE)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var output *wire.TxOut
+	var vout int
+	for v, txOut := range unsignedCommitTx.TxOut {
+		if bytes.Equal(output.PkScript, commitTxAddress.ScriptAddress()) {
+			output = txOut
+			vout = v
+			break
+		}
+	}
+
+	if output == nil {
+		return nil, nil, nil, errors.New("Couldn't find tx out in unsigned commit tx")
+	}
+
+	revealTx, fee := BuildRevealTransaction(
+		&ctrlBlock,
+		revealFeeRate,
+		&wire.OutPoint{
+			Hash:  unsignedCommitTx.TxHash(),
+			Index: uint32(vout),
+		}, &wire.TxOut{
+			PkScript: destination.ScriptAddress(),
+			Value:    output.Value,
+		},
+		revealScript,
+	)
+
+	revealTx.TxOut[0].Value -= int64(fee)
+
+	dustLimit := mempool.GetDustThreshold(&wire.TxOut{
+		PkScript: revealTx.TxOut[0].PkScript,
+	})
+
+	if revealTx.TxOut[0].Value < dustLimit {
+		err := errors.New(fmt.Sprintf("Commit transaction output would be dust!"))
+		return nil, nil, nil, err
+	}
+
+	hashCache := txscript.NewTxSigHashes(revealTx, blockchain.NewUtxoViewpoint())
+	// amt not yet set value
+
+	// private key or compare with privTweak?
+	sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
+		LeafVersion: txscript.TaprootLeafMask,
+		Script:      revealScript,
+	}, txscript.SigHashDefault, privKey)
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	witness := revealTx.TxIn[0].Witness
+	ctrlBlockByte, err := ctrlBlock.ToBytes()
+	if err != nil {
+		fmt.Println(err)
+		return nil, nil, nil, err
+	}
+	witness = append(witness, sig)
+	witness = append(witness, revealScript)
+	witness = append(witness, ctrlBlockByte)
+
+	tweakPrivKey := txscript.TweakTaprootPrivKey(*privKey, rootHash[:])
+
+	// check only public key
+	// check weight
+
+	return unsignedCommitTx, revealTx, tweakPrivKey, nil
 }
