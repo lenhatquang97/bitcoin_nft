@@ -1,16 +1,16 @@
 package enum
 
-type NetWorkValue string
-type NetworkEnt struct {
-	Bitcoin NetWorkValue
-	Testnet NetWorkValue
-	Signet  NetWorkValue
-	RegTest NetWorkValue
+type ChainValue string
+type ChainEnt struct {
+	Bitcoin ChainValue
+	Testnet ChainValue
+	Signet  ChainValue
+	RegTest ChainValue
 }
 
-var Network = &NetworkEnt{
+var Chain = &ChainEnt{
 	"bitcoin",
-	"testnet",
+	"testnet3",
 	"signet",
 	"regtest",
 }

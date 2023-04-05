@@ -45,10 +45,10 @@ NftFromFile:
 + Get binary file
 + Get mimetype: video/mp4, audio/mp3,...
 */
-func NftFromFile(filePath string) *Inscription {
+func NftFromFile(filePath string) (*Inscription, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer file.Close()
 
@@ -59,7 +59,7 @@ func NftFromFile(filePath string) *Inscription {
 
 	fileSize := fileInfo.Size()
 	if fileSize >= MAXIMUM_BYTE {
-		panic(fmt.Sprintf("Too much %d bytes for embedding NFT data", fileSize))
+		return nil, errors.New(fmt.Sprintf("Too much %d bytes for embedding NFT data", fileSize))
 	}
 
 	binFile, err := os.ReadFile(filePath)
@@ -72,7 +72,7 @@ func NftFromFile(filePath string) *Inscription {
 		panic(err)
 	}
 
-	return &Inscription{Body: binFile, ContentType: contentType}
+	return &Inscription{Body: binFile, ContentType: contentType}, nil
 }
 
 func NftFromTransaction(tx *wire.MsgTx) *Inscription {
@@ -314,10 +314,6 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 
 func BackupRecoverKey() {
 
-}
-
-func Run(inscribe *Inscribe) error {
-	return nil
 }
 
 func ContentLength(inscription *Inscription) int {
