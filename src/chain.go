@@ -43,6 +43,7 @@ func GetFirstInscriptionHeight(chain enum.ChainValue) int64 {
 }
 
 func GetGenesisBlock(chain enum.ChainValue) *btcutil.Block {
+
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package nft
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 )
 
 // collection
@@ -41,13 +43,13 @@ type Auth struct {
 }
 
 type Index struct {
-	Auth                            Auth
+	Auth                            *Auth
 	Client                          *rpcclient.Client
 	Database                        *mongo.Database
-	Path                            string
+	Path                            string // no use case
 	FirstInscriptionHeight          int64
 	GenesisBlockCoinbaseTransaction *wire.MsgTx
-	GenesisBlockCoinbaseTxID        string
+	GenesisBlockCoinbaseTxID        int32
 	HeightLimit                     int64
 	Reorged                         *bool
 	RpcUrl                          string
@@ -57,8 +59,8 @@ type Info struct {
 	BlockIndexed    int64
 	BranchPages     int64
 	FragmentBytes   int64
-	IndexFileSize   int64
-	IndexPath       string
+	IndexFileSize   int64  // no use
+	IndexPath       string // no use
 	LeafPage        int64
 	MetaDataBytes   int64
 	OutputTraversed int64
@@ -253,6 +255,24 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 	return client, nil
 }
 
+func GetAuth(cookieFile string) (*Auth, error) {
+	filerc, err := os.Open(cookieFile)
+	if err != nil {
+		return nil, err
+	}
+	defer filerc.Close()
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(filerc)
+	contents := buf.String()
+
+	userInfo := strings.Split(contents, ":")
+	return &Auth{
+		UserName: userInfo[0],
+		Password: userInfo[1],
+	}, nil
+}
+
 func Open(opt *Options) *Index {
 	rpcUrl := GetRPCUrl(opt)
 	if rpcUrl == "" {
@@ -265,6 +285,10 @@ func Open(opt *Options) *Index {
 	}
 
 	// log info
+	auth, err := GetAuth(file)
+	if err != nil {
+		return nil
+	}
 
 	// note: web socket connection for btcd
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
@@ -330,16 +354,17 @@ func Open(opt *Options) *Index {
 		// insert empty value
 	}
 
+	chaincfgParam := GetChainInfo(opt)
+
 	// get genesis block coin base tx
-	genesisBlockCoinbaseTx := new(wire.MsgTx)
 
 	reorged := false
 	return &Index{
-		GenesisBlockCoinbaseTransaction: genesisBlockCoinbaseTx,
-		GenesisBlockCoinbaseTxID:        "0",
-		Auth:                            Auth{},
+		GenesisBlockCoinbaseTransaction: chaincfgParam.GenesisBlock.Transactions[0],
+		GenesisBlockCoinbaseTxID:        0,
+		Auth:                            auth,
 		Client:                          client,
-		Path:                            path,
+		Path:                            path, // no use case use this field
 		FirstInscriptionHeight:          GetFirstInscriptionHeight(opt),
 		HeightLimit:                     opt.HeightLimit,
 		Reorged:                         &reorged,
