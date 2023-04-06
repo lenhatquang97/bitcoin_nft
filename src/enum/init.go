@@ -25,3 +25,20 @@ var Target = &TargetEnt{
 	"PostAge",
 	"Value",
 }
+
+type StatisticValue int64
+type StatisticEnt struct {
+	Schema           StatisticValue
+	Commits          StatisticValue
+	LostSats         StatisticValue
+	OutputsTraversed StatisticValue
+	SatRanges        StatisticValue
+}
+
+var Statistic = StatisticEnt{
+	0,
+	1,
+	2,
+	3,
+	4,
+}

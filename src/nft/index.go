@@ -1,15 +1,79 @@
 package nft
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/rpcclient"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"log"
 	"math"
 	"os"
 )
+
+// collection
+const (
+	HEIGHT_TO_BLOCK_HASH                                = "height_to_block_hash"
+	INSCRIPTION_ID_TO_INSCRIPTION_ENTRY                 = "inscription_id_to_inscription_entry"
+	INSCRIPTION_ID_TO_SATPOINT                          = "inscription_id_to_satpoint"
+	INSCRIPTION_NUMBER_TO_INSCRIPTION_ID                = "inscription_number_to_inscription_id"
+	OUTPOINT_TO_SAT_RANGES                              = "outpoint_to_sat_ranges"
+	OUTPOINT_TO_VALUE                                   = "outpoint_to_value"
+	SATPOINT_TO_INSCRIPTION_ID                          = "satpoint_to_inscription_id"
+	SAT_TO_INSCRIPTION_ID                               = "sat_to_inscription_id"
+	SAT_TO_SATPOINT                                     = "sat_to_satpoint"
+	STATISTIC_TO_COUNT                                  = "statistic_to_account"
+	WRITE_TRANSACTION_STARTING_BLOCK_COUNT_TO_TIMESTAMP = "write_transaction_starting_block_to_timestamp"
+
+	SCHEMA_VERSION = 3
+)
+
+type Auth struct {
+	UserName string
+	Password string
+}
+
+type Index struct {
+	Auth                            Auth
+	Client                          *rpcclient.Client
+	Database                        *mongo.Database
+	Path                            string
+	FirstInscriptionHeight          int64
+	GenesisBlockCoinbaseTransaction *wire.MsgTx
+	GenesisBlockCoinbaseTxID        string
+	HeightLimit                     int64
+	Reorged                         *bool
+	RpcUrl                          string
+}
+
+type Info struct {
+	BlockIndexed    int64
+	BranchPages     int64
+	FragmentBytes   int64
+	IndexFileSize   int64
+	IndexPath       string
+	LeafPage        int64
+	MetaDataBytes   int64
+	OutputTraversed int64
+	PageSize        int64
+	SatRange        int64
+	StoredBytes     int64
+	Transactions    []TransactionInfo
+	TreeWeight      int64
+	UtxoIndex       int64
+}
+
+type TransactionInfo struct {
+	StartingBlockCount int64
+	StartingTimeTemp   int64
+}
 
 type Options struct {
 	BitcoinDataDir         string
@@ -19,7 +83,7 @@ type Options struct {
 	CookieFile             string
 	DataDir                string
 	FirstInscriptionHeight int64
-	Height                 int64
+	HeightLimit            int64
 	Index                  string
 	IndexSats              bool
 	RegTest                bool
@@ -189,7 +253,7 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 	return client, nil
 }
 
-func Open(opt *Options) *Options {
+func Open(opt *Options) *Index {
 	rpcUrl := GetRPCUrl(opt)
 	if rpcUrl == "" {
 		return nil
@@ -225,4 +289,60 @@ func Open(opt *Options) *Options {
 		path = dataDir + "index.redb"
 	}
 
+	fmt.Println(path)
+
+	ctx := context.TODO() // init context global
+
+	uriConn := "mongodb+srv://tuankiet:kietlu1712@bankaccount.lfuju.mongodb.net/?retryWrites=true&w=majority"
+	option := options.Client().ApplyURI(uriConn)
+	mongoclient, err := mongo.Connect(ctx, option)
+	if err != nil {
+		log.Fatal("error while connecting with mongo", err)
+	}
+
+	err = mongoclient.Ping(ctx, readpref.Primary())
+	if err != nil {
+		log.Fatal("error while trying to ping mongo", err)
+	}
+
+	database := mongoclient.Database("ordinal")
+	collection := database.Collection(STATISTIC_TO_COUNT)
+	filter := bson.M{}
+	filter["key"] = enum.Statistic.Schema
+	data := collection.FindOne(ctx, filter)
+	if data != nil {
+
+		var res *StatisticToAccount
+		err = data.Decode(&res)
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+
+		if res.Value < SCHEMA_VERSION {
+			// print info
+		} else if res.Value > SCHEMA_VERSION {
+			// print info
+		}
+	} else {
+		// insert version
+
+		// insert empty value
+	}
+
+	// get genesis block coin base tx
+	genesisBlockCoinbaseTx := new(wire.MsgTx)
+
+	reorged := false
+	return &Index{
+		GenesisBlockCoinbaseTransaction: genesisBlockCoinbaseTx,
+		GenesisBlockCoinbaseTxID:        "0",
+		Auth:                            Auth{},
+		Client:                          client,
+		Path:                            path,
+		FirstInscriptionHeight:          GetFirstInscriptionHeight(opt),
+		HeightLimit:                     opt.HeightLimit,
+		Reorged:                         &reorged,
+		RpcUrl:                          rpcUrl,
+	}
 }
