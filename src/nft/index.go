@@ -273,21 +273,21 @@ func GetAuth(cookieFile string) (*Auth, error) {
 	}, nil
 }
 
-func Open(opt *Options) *Index {
+func Open(opt *Options) (*Index, error) {
 	rpcUrl := GetRPCUrl(opt)
 	if rpcUrl == "" {
-		return nil
+		return nil, errors.New("RPC url is empty")
 	}
 
 	file := GetCookieFile(opt)
 	if file == "" {
-		return nil
+		return nil, errors.New("Cookie file is empty")
 	}
 
 	// log info
 	auth, err := GetAuth(file)
 	if err != nil {
-		return nil
+		return nil, errors.New("Auth file is empty")
 	}
 
 	// note: web socket connection for btcd
@@ -297,13 +297,13 @@ func Open(opt *Options) *Index {
 	}, nil)
 
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	dataDir := GetDataDir(opt)
 	err = os.MkdirAll(dataDir, os.ModePerm)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	path := ""
@@ -339,8 +339,7 @@ func Open(opt *Options) *Index {
 		var res *StatisticToAccount
 		err = data.Decode(&res)
 		if err != nil {
-			fmt.Println(err)
-			return nil
+			return nil, err
 		}
 
 		if res.Value < SCHEMA_VERSION {
@@ -369,5 +368,13 @@ func Open(opt *Options) *Index {
 		HeightLimit:                     opt.HeightLimit,
 		Reorged:                         &reorged,
 		RpcUrl:                          rpcUrl,
-	}
+	}, nil
+}
+
+func Update(index *Index) *Index {
+	return index
+}
+
+func GetIndexInfo(index *Index) *Info {
+	return &Info{}
 }

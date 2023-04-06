@@ -24,8 +24,20 @@ type Inscribe struct {
 	Destination   btcutil.Address
 }
 
-func Run(inscribe *Inscribe) error {
+func Run(inscribe *Inscribe, opt *Options) error {
 	inscription, err := NftFromFile(inscribe.File)
+	if err != nil {
+		return err
+	}
+
+	index, err := Open(opt)
+	if err != nil {
+		return err
+	}
+
+	index = Update(index)
+
+	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {
 		return err
 	}
