@@ -10,14 +10,7 @@ type HeightToBlockHash struct {
 	Value BlockHashValue     `json:"value,omitempty" bson:"value,omitempty"`
 }
 
-type InscriptionIDValue struct {
-	Fee       int64 `json:"fee,omitempty" bson:"fee,omitempty"`
-	Height    int64 `json:"height,omitempty" bson:"height,omitempty"`
-	Number    int64 `json:"number,omitempty" bson:"number,omitempty"`
-	Sat       int64 `json:"sat,omitempty" bson:"sat,omitempty"`
-	TimeStamp int64 `json:"timeStamp,omitempty" bson:"time_stamp,omitempty"`
-}
-
+type InscriptionIDValue []byte
 type InscriptionIDToInscriptionEntry struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
 	Key   InscriptionIDValue `json:"key,omitempty" bson:"key,omitempty"`

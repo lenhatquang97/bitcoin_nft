@@ -601,8 +601,44 @@ func GetBlockTime(index *Index) {
 }
 
 // impl soon (1)
-func GetInscription(index *Index) {
+func GetInscription(index *Index, n int) (map[src.SatPoint]src.InscriptionId, error) {
+	satPointToInscriptionId := index.Database.Collection(SAT_TO_INSCRIPTION_ID)
+	if satPointToInscriptionId == nil {
+		return nil, errors.New("collection SAT_TO_INSCRIPTION_ID is null")
+	}
 
+	cursor, err := satPointToInscriptionId.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	satPointMap := make(map[src.SatPoint]src.InscriptionId)
+	for cursor.Next(context.TODO()) {
+		var res *SatPointToInscriptionID
+		err = cursor.Decode(&res)
+		if err != nil {
+			return nil, err
+		}
+		parseSatPoint, err := src.LoadIntoSatPoint(res.Key)
+		if err != nil {
+			return nil, err
+		}
+
+		parseInscriptionID, err := src.LoadIntoInscriptionID(res.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		satPointMap[*parseSatPoint] = *parseInscriptionID
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	cursor.Close(context.TODO())
+
+	return satPointMap, nil
 }
 
 // impl soon (4)

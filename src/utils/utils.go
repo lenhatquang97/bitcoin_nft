@@ -16,3 +16,10 @@ func IntToBytes(i int) []byte {
 	}
 	return append(big.NewInt(int64(i)).Bytes(), byte(0))
 }
+
+func BytesToInt(b []byte) int64 {
+	if b[len(b)-1] == 0 {
+		return -big.NewInt(0).SetBytes(b[:len(b)-1]).Int64()
+	}
+	return big.NewInt(0).SetBytes(b[:len(b)-1]).Int64()
+}
