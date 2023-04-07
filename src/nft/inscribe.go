@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/m25lab/bitcoin_nft/src"
+	"log"
 )
 
 type Output struct {
-	Commit        int64
+	Commit        string
 	InscriptionID src.InscriptionId
-	Reveal        int64
+	Reveal        string
 	Fee           int64
 }
 
@@ -42,7 +43,87 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	fmt.Print(inscription)
-	return nil
+	utxos, err := GetUnspentOutput(index)
+	if err != nil {
+		return err
+	}
 
+	inscriptions, err := GetInscription(index)
+	if err != nil {
+		return err
+	}
+
+	firstAddress, err := client.GetRawChangeAddress("")
+	if err != nil {
+		return err
+	}
+
+	secondAddress, err := client.GetRawChangeAddress("")
+	if err != nil {
+		return err
+	}
+
+	var commitTxChange []btcutil.Address
+	commitTxChange = append(commitTxChange, firstAddress)
+	commitTxChange = append(commitTxChange, secondAddress)
+
+	var revealTxDestination btcutil.Address
+	if inscribe.Destination != nil {
+		revealTxDestination = inscribe.Destination
+	} else {
+		// handle error
+		revealTxDestination, _ = client.GetRawChangeAddress("")
+	}
+
+	commitFeeRate := inscribe.CommitFeeRate
+	if commitFeeRate < 0 {
+		commitFeeRate = inscribe.FeeRate
+	}
+	unsignedCommitTx, revealTx, recoverKeyPair, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, GetChainInfo(opt), utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	utxos[revealTx.TxIn[0].PreviousOutPoint] = btcutil.Amount(unsignedCommitTx.TxOut[0].Value)
+
+	fees := CalculateFee(unsignedCommitTx, utxos) + CalculateFee(revealTx, utxos)
+	if inscribe.DryRun {
+		// log result output
+		output := Output{
+			Commit:        unsignedCommitTx.TxHash().String(),
+			Reveal:        revealTx.TxHash().String(),
+			InscriptionID: src.InscriptionId{},
+			Fee:           int64(fees),
+		}
+
+		log.Println(output)
+	} else {
+		if !inscribe.NoBackup {
+			// call backup recover key
+			fmt.Print(recoverKeyPair)
+			BackupRecoverKey()
+		}
+
+		signRawCommitTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
+		if err != nil {
+			return err
+		}
+
+		commit, err := client.SendRawTransaction(signRawCommitTx, false)
+		if err != nil {
+			return err
+		}
+
+		reveal, err := client.SendRawTransaction(revealTx, false)
+		if err != nil {
+			return err
+		}
+
+		output := Output{
+			Commit:        commit.String(),
+			Reveal:        reveal.String(),
+			InscriptionID: src.InscriptionId{},
+			Fee:           int64(fees),
+		}
+
+		log.Println(output)
+	}
+
+	return nil
 }

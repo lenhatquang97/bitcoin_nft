@@ -601,7 +601,7 @@ func GetBlockTime(index *Index) {
 }
 
 // impl soon (1)
-func GetInscription(index *Index, n int) (map[src.SatPoint]src.InscriptionId, error) {
+func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
 	satPointToInscriptionId := index.Database.Collection(SAT_TO_INSCRIPTION_ID)
 	if satPointToInscriptionId == nil {
 		return nil, errors.New("collection SAT_TO_INSCRIPTION_ID is null")
