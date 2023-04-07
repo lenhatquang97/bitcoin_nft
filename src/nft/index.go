@@ -5,11 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
+	"github.com/m25lab/bitcoin_nft/src/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -42,6 +46,11 @@ type Auth struct {
 	Password string
 }
 
+type UnspentOutputRange struct {
+	Outpoint *wire.OutPoint
+	Ranges   []int64
+}
+
 type Index struct {
 	Auth                            *Auth
 	Client                          *rpcclient.Client
@@ -49,7 +58,7 @@ type Index struct {
 	Path                            string // no use case
 	FirstInscriptionHeight          int64
 	GenesisBlockCoinbaseTransaction *wire.MsgTx
-	GenesisBlockCoinbaseTxID        int32
+	GenesisBlockCoinbaseTxID        string
 	HeightLimit                     int64
 	Reorged                         *bool
 	RpcUrl                          string
@@ -360,7 +369,7 @@ func Open(opt *Options) (*Index, error) {
 	reorged := false
 	return &Index{
 		GenesisBlockCoinbaseTransaction: chaincfgParam.GenesisBlock.Transactions[0],
-		GenesisBlockCoinbaseTxID:        0,
+		GenesisBlockCoinbaseTxID:        "0",
 		Auth:                            auth,
 		Client:                          client,
 		Path:                            path, // no use case use this field
@@ -371,10 +380,257 @@ func Open(opt *Options) (*Index, error) {
 	}, nil
 }
 
+func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
+	utxos := make(map[wire.OutPoint]btcutil.Amount)
+	// client list unspent
+	client := index.Client
+	unspentRes, err := client.ListUnspent()
+	if err != nil {
+		return nil, err
+	}
+
+	for txid, item := range unspentRes {
+		txHash, err := chainhash.NewHashFromStr(item.TxID)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		utxos[wire.OutPoint{
+			Hash:  *txHash,
+			Index: uint32(txid),
+		}] = btcutil.Amount(item.Amount)
+	}
+
+	listLockUnspent, err := client.ListLockUnspent()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, item := range listLockUnspent {
+		rawTx, err := client.GetRawTransaction(&item.Hash)
+		if err != nil {
+			return nil, err
+		}
+		utxos[wire.OutPoint{
+			Hash:  item.Hash,
+			Index: item.Index,
+		}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
+	}
+
+	outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
+	for outpoint := range utxos {
+		filter := bson.M{}
+		var key []byte
+		txId := blockchain.HashToBig(&outpoint.Hash)
+		key = append(key, txId.Bytes()...)
+		key = append(key, utils.IntToBytes(int(outpoint.Index))...)
+		filter["key"] = key
+		data := outpointToValue.FindOne(context.TODO(), filter)
+		if data.Err() != nil {
+			return nil, data.Err()
+		}
+
+		var res OutPointToValue
+		err = data.Decode(&res)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return utxos, nil
+}
+
+// maybe no use
+func List(index *Index, outpoint *wire.OutPoint) []int64 {
+	return []int64{}
+}
+
+// no use case use
+func GetUnspentOutputRanges(index *Index) ([]*UnspentOutputRange, error) {
+	unspentOutput, err := GetUnspentOutput(index)
+	if err != nil {
+		return nil, err
+	}
+
+	for _ = range unspentOutput {
+
+	}
+
+	return nil, nil
+}
+
+func HasSatIndex(index *Index) bool {
+	outpointToSatRange := index.Database.Collection(OUTPOINT_TO_SAT_RANGES)
+	if outpointToSatRange == nil {
+		return false
+	}
+
+	return true
+}
+
+func RequirementSatIndex(index *Index) bool {
+	return HasSatIndex(index)
+}
+
+// impl soon
+func GetInfo(index *Index) *Info {
+	return nil
+}
+
+// impl for server
+func BlockTime() {
+
+}
+
+// impl soon (1)
 func Update(index *Index) *Index {
 	return index
 }
 
-func GetIndexInfo(index *Index) *Info {
-	return &Info{}
+func IsReorged(index *Index) *bool {
+	return index.Reorged
+}
+
+// no use
+func BeginRead() {
+
+}
+
+// no use
+func BeginWrite() {
+
+}
+
+// impl soon (2)
+func IncrementStatistic(index *Index) error {
+	return nil
+}
+
+// test func
+func Statistic(index *Index, statistic enum.StatisticValue) int64 {
+	return 0
+}
+
+func GetHeightTx(index *Index) int64 {
+	return 0
+}
+
+func BlockCount(index *Index) int64 {
+	return 0
+}
+
+// impl soon (4)
+func GetBlock(index *Index) {
+
+}
+
+// impl soon (4)
+func RareSatSatPoints(index *Index) {
+
+}
+
+// impl soon (4)
+func RateSatSatPoint(index *Index) {
+
+}
+
+// impl soon (4)
+func BlockHeader(index *Index) {
+
+}
+
+// impl soon (2)
+func GetBlockByHeight(index *Index) {
+
+}
+
+// impl soon (4)
+func GetBlockByHash(index *Index) {
+
+}
+
+// impl soon (4)
+func GetInscriptionIdBySat(index *Index) {
+
+}
+
+// impl soon (4)
+func GetInscriptionIdByInscriptionNumber(index *Index) {
+
+}
+
+// impl soon (3)
+func GetInscriptionSatPointById(index *Index) {
+
+}
+
+// impl soon (3)
+func GetInscriptionById(index *Index) {
+
+}
+
+// impl soon (3)
+func GetInscriptionOnOutput(index *Index) {
+
+}
+
+// impl soon (4)
+func GetTransactionBlockHash(index *Index) {
+
+}
+
+// maybe no use
+func IsTransactionInActiveChain(index *Index) {
+
+}
+
+// impl soon (3)
+func Find(index *Index) {
+
+}
+
+// maybe no use
+func ListInner(index *Index) {
+
+}
+
+// impl soon (4)
+func GetBlockTime(index *Index) {
+
+}
+
+// impl soon (1)
+func GetInscription(index *Index) {
+
+}
+
+// impl soon (4)
+func GetHomePageInscription(index *Index) {
+
+}
+
+// impl soon (4)
+func GetLatestInscriptionWithPrevAndNext(index *Index) {
+
+}
+
+// impl soon (4)
+func GetFeeInscription(index *Index) {
+
+}
+
+// impl soon (4)
+func GetInscriptionEntry(index *Index) {
+
+}
+
+// impl soon (4)
+func AssertInscriptionLocation(index *Index) {
+
+}
+
+// impl soon (3)
+func InscriptionOnOutput(index *Index) {
+
 }
