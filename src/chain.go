@@ -42,11 +42,6 @@ func GetFirstInscriptionHeight(chain enum.ChainValue) int64 {
 	}
 }
 
-func GetGenesisBlock(chain enum.ChainValue) *btcutil.Block {
-
-	return nil
-}
-
 func AddressFromScript(script []byte, chain enum.ChainValue) (btcutil.Address, error) {
 	return btcutil.DecodeAddress(string(script), GetNetwork(chain))
 }
