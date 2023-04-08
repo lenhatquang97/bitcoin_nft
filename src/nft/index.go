@@ -369,7 +369,7 @@ func Open(opt *Options) (*Index, error) {
 	reorged := false
 	return &Index{
 		GenesisBlockCoinbaseTransaction: chaincfgParam.GenesisBlock.Transactions[0],
-		GenesisBlockCoinbaseTxID:        "0",
+		GenesisBlockCoinbaseTxID:        "0", // check how to get tx id, cal by hash + index
 		Auth:                            auth,
 		Client:                          client,
 		Path:                            path, // no use case use this field
@@ -546,8 +546,18 @@ func GetBlockByHeight(index *Index) {
 }
 
 // impl soon (4)
-func GetBlockByHash(index *Index) {
+func GetBlockByHash(index *Index, height int64) (*wire.MsgBlock, error) {
+	if index.Client == nil {
+		return nil, errors.New("Client is nil")
+	}
 
+	res, err := index.Client.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := index.Client.GetBlock(res)
+	return data, err
 }
 
 // impl soon (4)
@@ -561,18 +571,152 @@ func GetInscriptionIdByInscriptionNumber(index *Index) {
 }
 
 // impl soon (3)
-func GetInscriptionSatPointById(index *Index) {
+func GetInscriptionSatPointById(index *Index, inscriptionId *src.InscriptionId) (*src.SatPoint, error) {
+	if index.Database == nil {
+		return nil, errors.New("Database client is nil")
+	}
 
+	inscriptionIdToSatPoint := index.Database.Collection(INSCRIPTION_ID_TO_SATPOINT)
+	inscriptionIdStore, err := src.GetInscriptionIDStore(inscriptionId)
+	if err != nil {
+		return nil, err
+	}
+
+	filter := bson.M{}
+	filter["key"] = inscriptionIdStore
+	data := inscriptionIdToSatPoint.FindOne(context.TODO(), filter)
+	if data.Err() != nil {
+		return nil, data.Err()
+	}
+	var res *InscriptionIDToSatPoint
+	err = data.Decode(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	satPointDecode, err := src.LoadIntoSatPoint(res.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	return satPointDecode, nil
 }
 
 // impl soon (3)
-func GetInscriptionById(index *Index) {
+func GetInscriptionById(index *Index, inscriptionId *src.InscriptionId) (*Inscription, error) {
+	if index.Database == nil {
+		return nil, errors.New("Client data is nil")
+	}
 
+	inscriptionIdToSatPoint := index.Database.Collection(INSCRIPTION_ID_TO_SATPOINT)
+	inscriptionIdStore, err := src.GetInscriptionIDStore(inscriptionId)
+	if err != nil {
+		return nil, err
+	}
+
+	filter := bson.M{}
+	filter["key"] = inscriptionIdStore
+	data := inscriptionIdToSatPoint.FindOne(context.TODO(), filter)
+	if data.Err() != nil {
+		return nil, data.Err()
+	}
+	var res *InscriptionIDToSatPoint
+	err = data.Decode(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	// oke data is nil
+	if res == nil {
+		return nil, nil
+	}
+
+	tx, err := GetTransaction(index, inscriptionId.TxID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NftFromTransaction(tx)
 }
 
 // impl soon (3)
-func GetInscriptionOnOutput(index *Index) {
+func GetInscriptionOnOutput(index *Index, outpoint *wire.OutPoint) ([]src.InscriptionId, error) {
+	if index.Database == nil {
+		return nil, errors.New("Database is nil")
+	}
 
+	lower, err := src.GetSatPointStore(&src.SatPoint{
+		OutPoint: *outpoint,
+		OffSet:   0,
+	})
+
+	higher, err := src.GetSatPointStore(&src.SatPoint{
+		OutPoint: *outpoint,
+		OffSet:   math.MaxInt64,
+	})
+
+	satpointToInscriptionId := index.Database.Collection(SAT_TO_INSCRIPTION_ID)
+	filter := bson.M{}
+	filter["key"] = bson.M{
+		"$gte": lower,
+		"$lte": higher,
+	}
+
+	cursor, err := satpointToInscriptionId.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+
+	satPointMap := make(map[src.SatPoint]src.InscriptionId)
+	for cursor.Next(context.TODO()) {
+		var res *SatPointToInscriptionID
+		err = cursor.Decode(&res)
+		if err != nil {
+			return nil, err
+		}
+		parseSatPoint, err := src.LoadIntoSatPoint(res.Key)
+		if err != nil {
+			return nil, err
+		}
+
+		parseInscriptionID, err := src.LoadIntoInscriptionID(res.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		satPointMap[*parseSatPoint] = *parseInscriptionID
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	var res []src.InscriptionId
+	for _, inscriptionId := range satPointMap {
+		res = append(res, inscriptionId)
+	}
+
+	cursor.Close(context.TODO())
+
+	return res, nil
+}
+
+// impl soon (2)
+func GetTransaction(index *Index, txId string) (*wire.MsgTx, error) {
+	if txId == index.GenesisBlockCoinbaseTxID {
+		return index.GenesisBlockCoinbaseTransaction, nil
+	} else {
+		txHash, err := chainhash.NewHashFromStr(txId)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+		tx, err := index.Client.GetRawTransaction(txHash)
+		if err != nil {
+			return nil, err
+		}
+		return tx.MsgTx(), nil
+	}
 }
 
 // impl soon (4)
@@ -585,9 +729,13 @@ func IsTransactionInActiveChain(index *Index) {
 
 }
 
-// impl soon (3)
-func Find(index *Index) {
+// impl soon (4): maybe no use
+func Find(index *Index, sat int64) (*src.SatPoint, error) {
+	if !RequirementSatIndex(index) {
+		return nil, errors.New("requires index created -- find")
+	}
 
+	return nil, nil
 }
 
 // maybe no use
@@ -666,7 +814,8 @@ func AssertInscriptionLocation(index *Index) {
 
 }
 
-// impl soon (3)
+// impl soon (3): maybe no use
+// just is a range query in mongo
 func InscriptionOnOutput(index *Index) {
 
 }

@@ -34,8 +34,9 @@ type Inscription struct {
 }
 
 // TODO: Retrieve Inscription from Transaction
-func ParseNftFileFromTx(tx *wire.MsgTx) *Inscription {
-	return nil
+// impl soon (1) (Quang)
+func ParseNftFileFromTx(tx *wire.MsgTx) (*Inscription, error) {
+	return nil, nil
 }
 
 /*
@@ -75,11 +76,11 @@ func NftFromFile(filePath string) (*Inscription, error) {
 	return &Inscription{Body: binFile, ContentType: contentType}, nil
 }
 
-func NftFromTransaction(tx *wire.MsgTx) *Inscription {
+func NftFromTransaction(tx *wire.MsgTx) (*Inscription, error) {
 	return ParseNftFileFromTx(tx)
 }
 
-// Reveal Script
+// Reveal Script --> reverse?
 func NftRevealScriptBuilder(nftFile *Inscription, builder txscript.ScriptBuilder) *txscript.ScriptBuilder {
 	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddData([]byte(PROTOCOL_TAG))
 
