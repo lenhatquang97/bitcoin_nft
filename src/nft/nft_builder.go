@@ -26,7 +26,7 @@ const (
 	PROTOCOL_TAG           = "M25"
 	BODY_TAG               = "BodyM25"
 	CONTENT_TYPE_TAG       = "ContentTypeM25"
-	CHUNK_SIZE             = MAXIMUM_BYTE / 5
+	CHUNK_SIZE             = MAXIMUM_BYTE / 100024
 	ENABLE_RBF_NO_LOCKTIME = 0xFFFFFFFD
 )
 
@@ -84,18 +84,24 @@ func NftFromTransaction(tx *wire.MsgTx) (*Inscription, error) {
 
 // Reveal Script --> reverse?
 func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) []byte {
-	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddFullData([]byte(PROTOCOL_TAG))
-
-	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
-		builder = *builder.AddFullData([]byte(CONTENT_TYPE_TAG)).AddFullData([]byte(nftFile.ContentType))
-		multipleChunks := ChunkSlice(nftFile.Body, CHUNK_SIZE)
-		for _, chunk := range multipleChunks {
-			builder = *builder.AddFullData([]byte(BODY_TAG)).AddFullData(chunk)
-		}
-	}
 	scriptVal, err := builder.Script()
 	if err != nil {
 		fmt.Println(err)
+	}
+
+	scriptVal = append(scriptVal, txscript.OP_FALSE)
+	scriptVal = append(scriptVal, txscript.OP_IF)
+	scriptVal = append(scriptVal, []byte(PROTOCOL_TAG)...)
+
+	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
+		scriptVal = append(scriptVal, []byte(CONTENT_TYPE_TAG)...)
+		scriptVal = append(scriptVal, []byte(nftFile.ContentType)...)
+
+		multipleChunks := ChunkSlice(nftFile.Body, CHUNK_SIZE)
+		for _, chunk := range multipleChunks {
+			scriptVal = append(scriptVal, []byte(BODY_TAG)...)
+			scriptVal = append(scriptVal, chunk...)
+		}
 	}
 
 	scriptVal = append(scriptVal, txscript.OP_ENDIF)
@@ -389,13 +395,13 @@ func AddPadding(data []byte) int {
 
 func ConvertNftRevealScript(script []byte) *Inscription {
 	result := Inscription{}
-	startIndex := 2 + len([]byte(PROTOCOL_TAG)) + AddPadding([]byte(PROTOCOL_TAG))
+	startIndex := 1 + 1 + len([]byte(PROTOCOL_TAG))
 
 	//[contentTypeStartIndex, contentTypeLastIndex)
 	whetherHasContentType := FindFirstPartOfByte(script, []byte(CONTENT_TYPE_TAG))
 	if whetherHasContentType >= 0 {
-		contentTypeStartIndex := startIndex + len([]byte(CONTENT_TYPE_TAG)) + AddPadding([]byte(CONTENT_TYPE_TAG)) + 1
-		contentTypeLastIndex := FindFirstPartOfByte(script, []byte(BODY_TAG)) - AddPadding([]byte(BODY_TAG))
+		contentTypeStartIndex := startIndex + len([]byte(CONTENT_TYPE_TAG))
+		contentTypeLastIndex := FindFirstPartOfByte(script, []byte(BODY_TAG))
 		contentType := string(script[contentTypeStartIndex:contentTypeLastIndex])
 		result.ContentType = contentType
 		//[start, end)
@@ -406,10 +412,10 @@ func ConvertNftRevealScript(script []byte) *Inscription {
 			endBodyIndex := multipleStart[i+1]
 			fullBinary = append(fullBinary, script[startBodyIndex:endBodyIndex]...)
 		}
-		startBodyIndex := multipleStart[len(multipleStart)-1] + len([]byte(BODY_TAG)) + AddPadding([]byte(BODY_TAG))
+		startBodyIndex := multipleStart[len(multipleStart)-1] + len([]byte(BODY_TAG))
 		endBodyIndex := len(script) - 1
 
-		fullBinary = append(fullBinary, script[startBodyIndex+4:endBodyIndex]...)
+		fullBinary = append(fullBinary, script[startBodyIndex:endBodyIndex]...)
 		result.Body = fullBinary
 	}
 	return &result
