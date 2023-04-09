@@ -1,5 +1,7 @@
 package nft
 
+import "github.com/m25lab/bitcoin_nft/src/mnemonic"
+
 type Restore struct {
 	Mnemonic   string
 	Passphrase string
@@ -7,6 +9,11 @@ type Restore struct {
 
 func RestoreRun(opt *Options, restore *Restore) error {
 	// initialize wallet by restore
+	keyManager, err := mnemonic.NewKeyManager(128, restore.Passphrase, "")
+	if err != nil {
+		return err
+	}
 
-	return nil
+	seed := keyManager.GetSeed()
+	return InitializeWallet(opt, seed)
 }
