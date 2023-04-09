@@ -817,5 +817,5 @@ func AssertInscriptionLocation(index *Index) {
 // impl soon (3): maybe no use
 // just is a range query in mongo
 func InscriptionOnOutput(index *Index) {
-
+	//index.Client.ImportAddress()
 }

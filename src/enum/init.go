@@ -42,3 +42,34 @@ var Statistic = StatisticEnt{
 	3,
 	4,
 }
+
+type WalletActionValue string
+type WalletAction struct {
+	Balance      WalletActionValue
+	Create       WalletActionValue
+	Inscribe     WalletActionValue
+	Inscriptions WalletActionValue
+	Receive      WalletActionValue
+	Restore      WalletActionValue
+	Sats         WalletActionValue
+	Send         WalletActionValue
+	Transactions WalletActionValue
+	Outputs      WalletActionValue
+}
+
+type OutGoingTypeValue string
+type OutGoingTypeEnt struct {
+	Amount        OutGoingTypeValue
+	InscriptionId OutGoingTypeValue
+	Satpoint      OutGoingTypeValue
+}
+
+var OutGoingType = &OutGoingTypeEnt{
+	"amount",
+	"inscriptionId",
+	"satpoint",
+}
+
+func Run(action WalletActionValue, data interface{}) {
+
+}
