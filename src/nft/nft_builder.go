@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -11,8 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/m25lab/bitcoin_nft/src"
-	"log"
-	"os"
+
 	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
 
 	"github.com/btcsuite/btcd/txscript"
@@ -24,7 +26,7 @@ const (
 	PROTOCOL_TAG           = "M25"
 	BODY_TAG               = "BodyM25"
 	CONTENT_TYPE_TAG       = "ContentTypeM25"
-	CHUNK_SIZE             = MAXIMUM_BYTE / 6
+	CHUNK_SIZE             = 500
 	ENABLE_RBF_NO_LOCKTIME = 0xFFFFFFFD
 )
 
@@ -81,22 +83,19 @@ func NftFromTransaction(tx *wire.MsgTx) (*Inscription, error) {
 }
 
 // Reveal Script --> reverse?
-func NftRevealScriptBuilder(nftFile *Inscription, builder txscript.ScriptBuilder) *txscript.ScriptBuilder {
-	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddData([]byte(PROTOCOL_TAG))
+func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) []byte {
+	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddFullData([]byte(PROTOCOL_TAG))
 
 	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
-		builder = *builder.AddData([]byte(CONTENT_TYPE_TAG)).AddData([]byte(nftFile.ContentType))
+		builder = *builder.AddFullData([]byte(CONTENT_TYPE_TAG)).AddFullData([]byte(nftFile.ContentType))
 		multipleChunks := ChunkSlice(nftFile.Body, CHUNK_SIZE)
 		for _, chunk := range multipleChunks {
-			builder = *builder.AddData([]byte(BODY_TAG)).AddData(chunk)
+			builder = *builder.AddFullData([]byte(BODY_TAG)).AddFullData(chunk)
 		}
 	}
-	builder = *builder.AddOp(txscript.OP_ENDIF)
-	return &builder
-}
-
-func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) ([]byte, error) {
-	return NftRevealScriptBuilder(nftFile, builder).Script()
+	scriptVal, _ := builder.Script()
+	scriptVal = append(scriptVal, txscript.OP_ENDIF)
+	return scriptVal
 }
 
 // Check lại thiếu param script
@@ -214,7 +213,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	//txscript.PushedData()
 	builder := txscript.ScriptBuilder{}
 	builder = *builder.AddData(pubKey.SerializeUncompressed()).AddOp(txscript.OP_CHECKSIG) // compress or un compress
-	revealScript, err := NftRevealScript(inscription, builder)
+	revealScript := NftRevealScript(inscription, builder)
 
 	tapLeafSpendInfo := txscript.TapLeaf{
 		LeafVersion: txscript.TaprootLeafMask,

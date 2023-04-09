@@ -3,10 +3,11 @@ package nft
 import (
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
-	"log"
 )
 
 type SendData struct {
@@ -30,15 +31,15 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 	Update(index)
-	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
-	if err != nil {
-		return err
-	}
+	// client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
+	// if err != nil {
+	// 	return err
+	// }
 
-	unspentOutput, err := GetUnspentOutput(index)
-	if err != nil {
-		return err
-	}
+	// unspentOutput, err := GetUnspentOutput(index)
+	// if err != nil {
+	// 	return err
+	// }
 
 	inscriptions, err := GetInscription(index)
 	if err != nil {
