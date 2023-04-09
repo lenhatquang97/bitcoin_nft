@@ -17,9 +17,9 @@ func BalanceRun(opt *Options) error {
 		return err
 	}
 
-	var satPoints []*wire.OutPoint
+	satPoints := make(map[wire.OutPoint]string)
 	for satPoint := range inscriptiOutput {
-		satPoints = append(satPoints, &satPoint.OutPoint)
+		satPoints[satPoint.OutPoint] = ""
 	}
 
 	unspentOutput, err := GetUnspentOutput(index)
@@ -28,8 +28,11 @@ func BalanceRun(opt *Options) error {
 	}
 
 	var balance btcutil.Amount
-	for _, amount := range unspentOutput {
-		balance += amount
+	for outpoint, amount := range unspentOutput {
+		_, ok := satPoints[outpoint]
+		if !ok {
+			balance += amount
+		}
 	}
 
 	fmt.Print("Balance: %d", balance)
