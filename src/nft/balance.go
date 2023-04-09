@@ -2,6 +2,7 @@ package nft
 
 import (
 	"fmt"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/wire"
 )
@@ -32,6 +33,6 @@ func BalanceRun(opt *Options) error {
 		balance += amount
 	}
 
-	fmt.Print("Balance: %d", balance)
+	fmt.Println("Balance: {}", balance.ToBTC())
 	return nil
 }
