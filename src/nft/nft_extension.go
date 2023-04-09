@@ -123,7 +123,7 @@ func ParseScriptToInscription(script []byte) *Inscription {
 	return &result
 }
 
-func TestWithSimpleImage() {
+func TestWithSimplePDF() {
 	inscription, _ := NftFromFile("./Consensus4.pdf")
 	script := NftRevealScript(inscription, *txscript.NewScriptBuilder())
 	result := ParseScriptToInscription(script)
