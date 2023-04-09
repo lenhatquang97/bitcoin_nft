@@ -3,11 +3,12 @@ package nft
 import (
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
-	"log"
 )
 
 type SendData struct {

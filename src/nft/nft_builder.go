@@ -26,7 +26,7 @@ const (
 	PROTOCOL_TAG           = "M25"
 	BODY_TAG               = "BodyM25"
 	CONTENT_TYPE_TAG       = "ContentTypeM25"
-	CHUNK_SIZE             = MAXIMUM_BYTE / 100024
+	CHUNK_SIZE             = 500
 	ENABLE_RBF_NO_LOCKTIME = 0xFFFFFFFD
 )
 
@@ -104,6 +104,16 @@ func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) []byt
 		}
 	}
 
+	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddFullData([]byte(PROTOCOL_TAG))
+
+	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
+		builder = *builder.AddFullData([]byte(CONTENT_TYPE_TAG)).AddFullData([]byte(nftFile.ContentType))
+		multipleChunks := ChunkSlice(nftFile.Body, CHUNK_SIZE)
+		for _, chunk := range multipleChunks {
+			builder = *builder.AddFullData([]byte(BODY_TAG)).AddFullData(chunk)
+		}
+	}
+	scriptVal, _ = builder.Script()
 	scriptVal = append(scriptVal, txscript.OP_ENDIF)
 	return scriptVal
 }
