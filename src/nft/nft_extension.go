@@ -3,7 +3,6 @@ package nft
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"github.com/btcsuite/btcd/txscript"
 )
@@ -121,25 +120,4 @@ func ParseScriptToInscription(script []byte) *Inscription {
 	result.Body = append(result.Body, script[actualStartBody:actualEndBody]...)
 
 	return &result
-}
-
-func TestWithSimpleImage() {
-	inscription, _ := NftFromFile("./Consensus4.pdf")
-	script := NftRevealScript(inscription, *txscript.NewScriptBuilder())
-	result := ParseScriptToInscription(script)
-	err := os.WriteFile("./final.pdf", result.Body, 0644)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(result.ContentType)
-}
-
-func TestWithSimpleText() {
-	inscription := Inscription{
-		ContentType: "text/plain",
-		Body:        []byte("Hello World"),
-	}
-	script := NftRevealScript(&inscription, *txscript.NewScriptBuilder())
-	result := ParseScriptToInscription(script)
-	fmt.Println(len(string(result.Body)))
 }
