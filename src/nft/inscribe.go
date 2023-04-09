@@ -53,12 +53,12 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	firstAddress, err := client.GetRawChangeAddress("")
+	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
 	if err != nil {
 		return err
 	}
 
-	secondAddress, err := client.GetRawChangeAddress("")
+	secondAddress, err := client.GetRawChangeAddressType("", "bech32m")
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		revealTxDestination = inscribe.Destination
 	} else {
 		// handle error
-		revealTxDestination, _ = client.GetRawChangeAddress("")
+		revealTxDestination, _ = client.GetRawChangeAddressType("", "bech32m")
 	}
 
 	commitFeeRate := inscribe.CommitFeeRate

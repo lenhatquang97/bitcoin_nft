@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -11,8 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/m25lab/bitcoin_nft/src"
-	"log"
-	"os"
+
 	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
 
 	"github.com/btcsuite/btcd/txscript"
@@ -24,7 +26,7 @@ const (
 	PROTOCOL_TAG           = "M25"
 	BODY_TAG               = "BodyM25"
 	CONTENT_TYPE_TAG       = "ContentTypeM25"
-	CHUNK_SIZE             = MAXIMUM_BYTE / 6
+	CHUNK_SIZE             = MAXIMUM_BYTE / 100024
 	ENABLE_RBF_NO_LOCKTIME = 0xFFFFFFFD
 )
 
@@ -81,22 +83,29 @@ func NftFromTransaction(tx *wire.MsgTx) (*Inscription, error) {
 }
 
 // Reveal Script --> reverse?
-func NftRevealScriptBuilder(nftFile *Inscription, builder txscript.ScriptBuilder) *txscript.ScriptBuilder {
-	builder = *builder.AddOp(txscript.OP_FALSE).AddOp(txscript.OP_IF).AddData([]byte(PROTOCOL_TAG))
+func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) []byte {
+	scriptVal, err := builder.Script()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	scriptVal = append(scriptVal, txscript.OP_FALSE)
+	scriptVal = append(scriptVal, txscript.OP_IF)
+	scriptVal = append(scriptVal, []byte(PROTOCOL_TAG)...)
 
 	if len(nftFile.ContentType) != 0 && nftFile.Body != nil {
-		builder = *builder.AddData([]byte(CONTENT_TYPE_TAG)).AddData([]byte(nftFile.ContentType))
+		scriptVal = append(scriptVal, []byte(CONTENT_TYPE_TAG)...)
+		scriptVal = append(scriptVal, []byte(nftFile.ContentType)...)
+
 		multipleChunks := ChunkSlice(nftFile.Body, CHUNK_SIZE)
 		for _, chunk := range multipleChunks {
-			builder = *builder.AddData([]byte(BODY_TAG)).AddData(chunk)
+			scriptVal = append(scriptVal, []byte(BODY_TAG)...)
+			scriptVal = append(scriptVal, chunk...)
 		}
 	}
-	builder = *builder.AddOp(txscript.OP_ENDIF)
-	return &builder
-}
 
-func NftRevealScript(nftFile *Inscription, builder txscript.ScriptBuilder) ([]byte, error) {
-	return NftRevealScriptBuilder(nftFile, builder).Script()
+	scriptVal = append(scriptVal, txscript.OP_ENDIF)
+	return scriptVal
 }
 
 // Check lại thiếu param script
@@ -214,7 +223,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	//txscript.PushedData()
 	builder := txscript.ScriptBuilder{}
 	builder = *builder.AddData(pubKey.SerializeUncompressed()).AddOp(txscript.OP_CHECKSIG) // compress or un compress
-	revealScript, err := NftRevealScript(inscription, builder)
+	revealScript := NftRevealScript(inscription, builder)
 
 	tapLeafSpendInfo := txscript.TapLeaf{
 		LeafVersion: txscript.TaprootLeafMask,
@@ -319,4 +328,95 @@ func BackupRecoverKey() {
 
 func ContentLength(inscription *Inscription) int {
 	return len(inscription.Body)
+}
+
+// 1 2 3 4 5
+// 2 3 4
+func FindFirstPartOfByte(script []byte, searchKey []byte) int {
+	m := len(searchKey)
+	n := len(script)
+
+	for i := 0; i <= n-m; i++ {
+		var j = 0
+		for j = 0; j < m; j++ {
+			if script[i+j] != searchKey[j] {
+				break
+			}
+		}
+		if j == m {
+			return i
+		}
+	}
+	return -1
+}
+
+func FindMultipleStartOfByte(script []byte, searchKey []byte) []int {
+	m := len(searchKey)
+	n := len(script)
+
+	var result []int
+
+	for i := 0; i <= n-m; i++ {
+		var j = 0
+		for j = 0; j < m; j++ {
+			if script[i+j] != searchKey[j] {
+				break
+			}
+		}
+		if j == m {
+			result = append(result, i)
+		}
+	}
+	return result
+}
+
+func AddPadding(data []byte) int {
+	padding := 0
+	dataLen := len(data)
+	condition1 := dataLen == 0 || dataLen == 1 && data[0] == 0
+	condition2 := dataLen == 1 && data[0] <= 16
+	condition3 := dataLen == 1 && data[0] == 0x81
+
+	if condition1 || condition2 || condition3 {
+		return dataLen
+	}
+
+	if dataLen < txscript.OP_PUSHDATA1 {
+		padding += 1
+	} else if dataLen <= 0xff {
+		padding += 2
+	} else if dataLen <= 0xffff {
+		padding += 3
+	} else {
+		padding += 5
+	}
+	return padding
+}
+
+func ConvertNftRevealScript(script []byte) *Inscription {
+	result := Inscription{}
+	startIndex := 1 + 1 + len([]byte(PROTOCOL_TAG))
+
+	//[contentTypeStartIndex, contentTypeLastIndex)
+	whetherHasContentType := FindFirstPartOfByte(script, []byte(CONTENT_TYPE_TAG))
+	if whetherHasContentType >= 0 {
+		contentTypeStartIndex := startIndex + len([]byte(CONTENT_TYPE_TAG))
+		contentTypeLastIndex := FindFirstPartOfByte(script, []byte(BODY_TAG))
+		contentType := string(script[contentTypeStartIndex:contentTypeLastIndex])
+		result.ContentType = contentType
+		//[start, end)
+		multipleStart := FindMultipleStartOfByte(script, []byte(BODY_TAG))
+		fullBinary := []byte{}
+		for i := 0; i < len(multipleStart)-1; i++ {
+			startBodyIndex := multipleStart[i] + len([]byte(BODY_TAG))
+			endBodyIndex := multipleStart[i+1]
+			fullBinary = append(fullBinary, script[startBodyIndex:endBodyIndex]...)
+		}
+		startBodyIndex := multipleStart[len(multipleStart)-1] + len([]byte(BODY_TAG))
+		endBodyIndex := len(script) - 1
+
+		fullBinary = append(fullBinary, script[startBodyIndex:endBodyIndex]...)
+		result.Body = fullBinary
+	}
+	return &result
 }

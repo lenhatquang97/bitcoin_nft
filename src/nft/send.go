@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 	"log"
@@ -45,6 +46,7 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 
+	outGoing := new(src.SatPoint)
 	switch data.OutGoingType {
 	case enum.OutGoingType.Satpoint:
 		satpoint := data.OutGoingTypeData.(*src.SatPoint)
@@ -59,6 +61,7 @@ func SendRun(opt *Options, data *SendData) error {
 				return errors.New(s)
 			}
 		}
+		outGoing = satpoint
 		break
 	case enum.OutGoingType.InscriptionId:
 		inscriptionId := data.OutGoingTypeData.(*src.InscriptionId)
@@ -66,15 +69,71 @@ func SendRun(opt *Options, data *SendData) error {
 			return errors.New("inscription id data is invalid")
 		}
 
-		_, err = GetInscriptionSatPointById(index, inscriptionId)
+		outGoing, err = GetInscriptionSatPointById(index, inscriptionId)
 		if err != nil {
 			log.Printf("inscription %v not found", inscriptionId)
 			return err
 		}
 		break
 	case enum.OutGoingType.Amount:
+		allInscriptionOutput := make(map[wire.OutPoint]string)
+		for inscriptionOuput := range inscriptions {
+			allInscriptionOutput[inscriptionOuput.OutPoint] = ""
+		}
+
+		var walletInscriptionOutput []*wire.OutPoint
+		for utxo := range unspentOutput {
+			_, ok := allInscriptionOutput[utxo]
+			if ok {
+				walletInscriptionOutput = append(walletInscriptionOutput, &utxo)
+			}
+		}
+
+		amount := data.OutGoingTypeData.(btcutil.Amount)
+		err = client.LockUnspent(false, walletInscriptionOutput)
+		if err != nil {
+			return err
+		}
+
+		res, err := client.SendToAddress(data.Address, amount)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Chain hash: ", res)
+
 		break
 	}
+
+	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	if err != nil {
+		return err
+	}
+
+	secondAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	if err != nil {
+		return err
+	}
+
+	var commitTxChange []btcutil.Address
+	commitTxChange = append(commitTxChange, firstAddress)
+	commitTxChange = append(commitTxChange, secondAddress)
+	unsignedCommitTx, err := BuildTransactionWithPostage(*outGoing, inscriptions, unspentOutput, data.Address, commitTxChange, data.FeeRate)
+	if err != nil {
+		return err
+	}
+
+	signedTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
+	if err != nil {
+		return err
+	}
+
+	res, err := client.SendRawTransaction(signedTx, false)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Tx hash: ", res)
 
 	return nil
 }

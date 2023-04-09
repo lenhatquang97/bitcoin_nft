@@ -12,7 +12,7 @@ func ReceiveRun(opt *Options) error {
 		return err
 	}
 
-	address, err := client.GetNewAddressType("", "Bech32m")
+	address, err := client.GetNewAddressType("", "bech32m")
 	if err != nil {
 		return err
 	}
