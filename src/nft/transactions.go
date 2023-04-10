@@ -7,6 +7,10 @@ type TransactionOutput struct {
 	Confirmations int64
 }
 
+/*
+* No need to review
+ */
+
 func TransactionRun(opt *Options) error {
 	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {

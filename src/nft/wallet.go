@@ -2,6 +2,7 @@ package nft
 
 import (
 	"fmt"
+
 	"github.com/btcsuite/btcd/rpcclient"
 )
 

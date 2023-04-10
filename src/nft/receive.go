@@ -6,6 +6,10 @@ type ReceiveOutput struct {
 	Address string
 }
 
+/*
+* Have reviewed in 10/4/2023
+ */
+
 func ReceiveRun(opt *Options) error {
 	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {

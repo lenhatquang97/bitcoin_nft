@@ -1,10 +1,10 @@
 package nft
 
 import (
-	"fmt"
+	"log"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/m25lab/bitcoin_nft/src"
-	"log"
 )
 
 type Output struct {
@@ -79,7 +79,11 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	if commitFeeRate < 0 {
 		commitFeeRate = inscribe.FeeRate
 	}
-	unsignedCommitTx, revealTx, recoverKeyPair, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, GetChainInfo(opt), utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, GetChainInfo(opt), utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	if err != nil {
+		return err
+	}
+
 	utxos[revealTx.TxIn[0].PreviousOutPoint] = btcutil.Amount(unsignedCommitTx.TxOut[0].Value)
 
 	fees := CalculateFee(unsignedCommitTx, utxos) + CalculateFee(revealTx, utxos)
@@ -94,12 +98,6 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		if !inscribe.NoBackup {
-			// call backup recover key
-			fmt.Print(recoverKeyPair)
-			BackupRecoverKey()
-		}
-
 		signRawCommitTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
 		if err != nil {
 			return err

@@ -2,9 +2,14 @@ package nft
 
 import (
 	"fmt"
+
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 )
+
+/*
+* Review that needs to self-create inscriptions for Server running
+ */
 
 type InscriptionOutput struct {
 	InscriptionID src.InscriptionId
@@ -32,16 +37,12 @@ func InscriptionRun(opt *Options) error {
 	switch opt.ChainArgument {
 	case enum.Chain.Bitcoin:
 		explorer = "https://ordinals.com/inscription/"
-		break
 	case enum.Chain.RegTest:
 		explorer = "http://localhost/inscription/"
-		break
 	case enum.Chain.Signet:
 		explorer = "https://signet.ordinals.com/inscription/"
-		break
 	case enum.Chain.Testnet:
 		explorer = "https://testnet.ordinals.com/inscription/"
-		break
 	}
 
 	var res []InscriptionOutput

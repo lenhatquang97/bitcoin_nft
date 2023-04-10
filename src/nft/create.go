@@ -2,6 +2,7 @@ package nft
 
 import (
 	"fmt"
+
 	"github.com/m25lab/bitcoin_nft/src/mnemonic"
 )
 
@@ -10,15 +11,15 @@ type CreateData struct {
 	Passphrase string
 }
 
-type CreateInto struct {
-	PassPhrase string
-}
+/*
+* Have reviewed in 9/4/2023
+ */
 
-func CreateRun(input *CreateInto, opt *Options) error {
+func GenMnemonicAndSeed(passPhrase string) ([]byte, *CreateData, error) {
 	// gen mnemonic
-	keyManager, err := mnemonic.NewKeyManager(128, input.PassPhrase, "")
+	keyManager, err := mnemonic.NewKeyManager(128, passPhrase, "")
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// to seed
@@ -28,7 +29,17 @@ func CreateRun(input *CreateInto, opt *Options) error {
 		Passphrase: keyManager.GetPassphrase(),
 	}
 
-	fmt.Print("Create result: ", output)
+	return seed, output, nil
+}
+
+func CreateRun(passPhrase string, opt *Options) error {
+	// gen mnemonic
+	seed, output, err := GenMnemonicAndSeed(passPhrase)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Create result: ", output)
 
 	// initialize wallet
 	return InitializeWallet(opt, seed)

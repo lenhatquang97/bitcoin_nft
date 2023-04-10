@@ -42,10 +42,12 @@ func GetFirstInscriptionHeight(chain enum.ChainValue) int64 {
 	}
 }
 
+// Invalid use
 func AddressFromScript(script []byte, chain enum.ChainValue) (btcutil.Address, error) {
 	return btcutil.DecodeAddress(string(script), GetNetwork(chain))
 }
 
+// Path is for storing cookie fie
 func JoinWithDataDir(dataDir string, chain enum.ChainValue) string {
 	if chain == enum.Chain.Bitcoin {
 		return dataDir
