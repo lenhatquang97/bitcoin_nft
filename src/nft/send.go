@@ -48,6 +48,7 @@ func SendRun(opt *Options, data *SendData) error {
 	}
 
 	outGoing := new(src.SatPoint)
+
 	switch data.OutGoingType {
 	case enum.OutGoingType.Satpoint:
 		satpoint := data.OutGoingTypeData.(*src.SatPoint)
@@ -63,7 +64,6 @@ func SendRun(opt *Options, data *SendData) error {
 			}
 		}
 		outGoing = satpoint
-		break
 	case enum.OutGoingType.InscriptionId:
 		inscriptionId := data.OutGoingTypeData.(*src.InscriptionId)
 		if inscriptionId == nil {
@@ -75,7 +75,6 @@ func SendRun(opt *Options, data *SendData) error {
 			log.Printf("inscription %v not found", inscriptionId)
 			return err
 		}
-		break
 	case enum.OutGoingType.Amount:
 		allInscriptionOutput := make(map[wire.OutPoint]string)
 		for inscriptionOuput := range inscriptions {
@@ -102,8 +101,6 @@ func SendRun(opt *Options, data *SendData) error {
 		}
 
 		fmt.Println("Chain hash: ", res)
-
-		break
 	}
 
 	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
@@ -133,8 +130,6 @@ func SendRun(opt *Options, data *SendData) error {
 	if err != nil {
 		return err
 	}
-
 	fmt.Println("Tx hash: ", res)
-
 	return nil
 }

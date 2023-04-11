@@ -5,6 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"math"
+	"os"
+	"strings"
+
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -18,10 +23,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"log"
-	"math"
-	"os"
-	"strings"
 )
 
 // collection
@@ -345,7 +346,7 @@ func Open(opt *Options) (*Index, error) {
 	data := collection.FindOne(ctx, filter)
 	if data != nil {
 
-		var res *StatisticToAccount
+		var res *StatisticToCount
 		err = data.Decode(&res)
 		if err != nil {
 			return nil, err

@@ -2,6 +2,7 @@ package nft
 
 import (
 	"fmt"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/wire"
 )
@@ -16,7 +17,6 @@ func OutputRun(opt *Options) error {
 	if err != nil {
 		return err
 	}
-	Update(index)
 	unspentOutput, err := GetUnspentOutput(index)
 	if err != nil {
 		return err

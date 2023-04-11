@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/mempool"
@@ -489,11 +490,11 @@ func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoi
 	if outpoint == nil {
 		err = errors.New("Not enough cardinal utxo")
 		fmt.Println(err)
-		return
+		return nil, 0, err
 	}
 
 	delete(builder.Utxos, *outpoint)
-	return
+	return outpoint, amount, nil
 }
 
 func BuildTransaction(transactionBuilder *TransactionBuilder) (*wire.MsgTx, error) {

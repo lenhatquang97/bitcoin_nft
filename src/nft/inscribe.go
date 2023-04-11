@@ -36,8 +36,6 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	index = Update(index)
-
 	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {
 		return err
