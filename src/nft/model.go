@@ -6,7 +6,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 type BlockHashValue []byte
 type HeightToBlockHash struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
 	Value BlockHashValue     `json:"value,omitempty" bson:"value,omitempty"`
 }
 
@@ -26,7 +26,7 @@ type InscriptionIDToSatPoint struct {
 
 type InscriptionNumberToInscriptionID struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
 	Value InscriptionIDValue `json:"value,omitempty" bson:"value,omitempty"`
 }
 
@@ -34,13 +34,13 @@ type OutPointValue []byte
 type OutPointToSatRanges struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
 	Key   OutPointValue      `json:"key,omitempty" bson:"key,omitempty"`
-	Value []int64            `json:"value,omitempty" bson:"value,omitempty"`
+	Value []uint8            `json:"value,omitempty" bson:"value,omitempty"`
 }
 
 type OutPointToValue struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
 	Key   OutPointValue      `json:"key,omitempty" bson:"key,omitempty"`
-	Value int64              `json:"value,omitempty" bson:"value,omitempty"`
+	Value uint64             `json:"value,omitempty" bson:"value,omitempty"`
 }
 
 type SatPointToInscriptionID struct {
@@ -51,24 +51,24 @@ type SatPointToInscriptionID struct {
 
 type SatToInscriptionID struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
 	Value InscriptionIDValue `json:"value,omitempty" bson:"value,omitempty"`
 }
 
 type SatToSatPoint struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
 	Value SatPointValue      `json:"value,omitempty" bson:"value,omitempty"`
 }
 
-type StatisticToAccount struct {
+type StatisticToCount struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
-	Value int64              `json:"value,omitempty" bson:"value,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
+	Value uint64             `json:"value,omitempty" bson:"value,omitempty"`
 }
 
 type WriteInscriptionStartingBlockCountToTimeStamp struct {
 	ID    primitive.ObjectID `json:"-" bson:"_id,omitempty"`
-	Key   int64              `json:"key,omitempty" bson:"key,omitempty"`
-	Value int64              `json:"value,omitempty" bson:"value,omitempty"`
+	Key   uint64             `json:"key,omitempty" bson:"key,omitempty"`
+	Value uint64             `json:"value,omitempty" bson:"value,omitempty"`
 }

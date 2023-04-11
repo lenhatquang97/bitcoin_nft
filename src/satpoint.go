@@ -2,6 +2,8 @@ package src
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
@@ -15,11 +17,11 @@ type SatPoint struct {
 
 func GetSatPointStore(sat *SatPoint) ([]byte, error) {
 	if sat == nil {
-		return nil, errors.New("Sat point is nil")
+		return nil, fmt.Errorf("sat point is nil")
 	}
 
 	if &sat.OutPoint == nil {
-		return nil, errors.New("Outpoint of satpoint is nil")
+		return nil, fmt.Errorf("outpoint of satpoint is nil")
 	}
 
 	var key []byte
