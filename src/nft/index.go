@@ -42,6 +42,8 @@ const (
 	SCHEMA_VERSION = 3
 )
 
+var ctx context.Context
+
 type Auth struct {
 	UserName string
 	Password string
@@ -325,7 +327,7 @@ func Open(opt *Options) (*Index, error) {
 
 	fmt.Println(path)
 
-	ctx := context.TODO() // init context global
+	ctx = context.TODO() // init context global
 
 	uriConn := "mongodb+srv://tuankiet:kietlu1712@bankaccount.lfuju.mongodb.net/?retryWrites=true&w=majority"
 	option := options.Client().ApplyURI(uriConn)
