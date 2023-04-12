@@ -30,14 +30,14 @@ func init() {
 	server = gin.Default()
 }
 
-func run(opt *nft.Options, index nft.Index) error {
+func run(opt *nft.Options, index nft.Index) {
 	newIndex := index
 	nft.Update(&newIndex)
 
-	config, err := nft.LoadConfig(opt)
-	if err != nil {
-		return err
-	}
+	//config, err := nft.LoadConfig(opt)
+	//if err != nil {
+	//	return err
+	//}
 
 }
 
