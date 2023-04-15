@@ -23,6 +23,8 @@ type Server struct {
 	Http                bool
 	Https               bool
 	RedirectHttpToHttps bool
+	Index               *nft.Index
+	Options             *nft.Options
 }
 
 func init() {
@@ -30,20 +32,32 @@ func init() {
 	server = gin.Default()
 }
 
-func run(opt *nft.Options, index nft.Index) {
+func run(opt *nft.Options, index *nft.Index) (*Server, error) {
 	newIndex := index
-	nft.Update(&newIndex)
+	nft.Update(newIndex)
+	sv := &Server{
+		Index:   index,
+		Options: opt,
+	}
 
 	//config, err := nft.LoadConfig(opt)
 	//if err != nil {
 	//	return err
 	//}
-
+	return sv, nil
 }
 
 func main() {
 	basePath := server.Group("/v1")
-	RegisterRoutePath(basePath)
+	var opt *nft.Options
+	var index *nft.Index
+	sv, err := run(opt, index)
+
+	if err != nil {
+		panic(err)
+	}
+
+	RegisterRoutePath(basePath, sv)
 
 	port := os.Getenv("PORT")
 	if port == "" {

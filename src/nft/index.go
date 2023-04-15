@@ -444,7 +444,7 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 	return utxos, nil
 }
 
-// maybe no use
+// **
 func List(index *Index, outpoint *wire.OutPoint) []int64 {
 	return []int64{}
 }
@@ -524,8 +524,8 @@ func BlockCount(index *Index) int64 {
 }
 
 // impl soon (4)
-func GetBlock(index *Index) {
-
+func GetBlock(index *Index) []chainhash.Hash {
+	return nil
 }
 
 // impl soon (4)
@@ -539,27 +539,47 @@ func RateSatSatPoint(index *Index) {
 }
 
 // impl soon (4)
-func BlockHeader(index *Index) {
-
-}
-
-// impl soon (2)
-func GetBlockByHeight(index *Index) {
-
-}
-
-// impl soon (4)
-func GetBlockByHash(index *Index, height int64) (*wire.MsgBlock, error) {
-	if index.Client == nil {
-		return nil, errors.New("Client is nil")
+func BlockHeader(index *Index, hash *chainhash.Hash) (*wire.BlockHeader, error) {
+	client := index.Client
+	if client == nil {
+		panic("Client is nil")
 	}
 
-	res, err := index.Client.GetBlockHash(height)
+	res, err := client.GetBlockHeader(hash)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := index.Client.GetBlock(res)
+	return res, err
+}
+
+// impl soon (2)
+func GetBlockByHeight(index *Index, height int64) (*wire.MsgBlock, error) {
+	client := index.Client
+	if client == nil {
+		panic("Client is nil")
+	}
+
+	blockHash, err := client.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := client.GetBlock(blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
+// impl soon (4)
+func GetBlockByHash(index *Index, hash *chainhash.Hash) (*wire.MsgBlock, error) {
+	if index.Client == nil {
+		return nil, errors.New("Client is nil")
+	}
+
+	data, err := index.Client.GetBlock(hash)
 	return data, err
 }
 
@@ -722,9 +742,25 @@ func GetTransaction(index *Index, txId string) (*wire.MsgTx, error) {
 	}
 }
 
-// impl soon (4)
-func GetTransactionBlockHash(index *Index) {
+// impl soon (2)
+func GetTransactionBlockHash(index *Index, txId string) (*chainhash.Hash, error) {
+	client := index.Client
+	if client == nil {
+		panic("Client is nil")
+	}
 
+	// convert txid to tx hash
+	txHash, err := chainhash.NewHashFromStr(txId)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := client.GetRawTransaction(txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Hash(), err
 }
 
 // maybe no use
