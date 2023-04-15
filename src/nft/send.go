@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
@@ -23,7 +24,7 @@ type SendDataOutput struct {
 }
 
 func SendRun(opt *Options, data *SendData) error {
-	if !data.Address.IsForNet(GetChainInfo(opt)) {
+	if !data.Address.IsForNet(&chaincfg.TestNet3Params) {
 		return errors.New("Address is not valid")
 	}
 

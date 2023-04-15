@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/m25lab/bitcoin_nft/src"
 )
 
@@ -77,7 +78,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	if commitFeeRate < 0 {
 		commitFeeRate = inscribe.FeeRate
 	}
-	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, GetChainInfo(opt), utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
 	if err != nil {
 		return err
 	}

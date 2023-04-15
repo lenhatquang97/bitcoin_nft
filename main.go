@@ -2,20 +2,23 @@ package main
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/btcsuite/btcd/txscript"
+	"github.com/m25lab/bitcoin_nft/src/enum"
 	"github.com/m25lab/bitcoin_nft/src/nft"
 )
 
 func main() {
-	inscription, _ := nft.NftFromFile("./mrt.png")
-	script := nft.NftRevealScript(inscription, *txscript.NewScriptBuilder())
-	result := nft.ParseScriptToInscription(script)
-	err := os.WriteFile("./final.png", result.Body, 0644)
+	option := nft.Options{
+		ChainArgument:  enum.Chain.Testnet,
+		BitcoinDataDir: "./bitcoindatadir/",
+		DataDir:        "./datadir/",
+		RpcUrl:         "localhost:8334",
+		IndexSats:      true,
+	}
+	result, err := nft.Open(&option)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		fmt.Println(result.FirstInscriptionHeight)
 	}
-	fmt.Println(result.ContentType)
-
 }
