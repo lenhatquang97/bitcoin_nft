@@ -37,69 +37,12 @@ const (
 	SAT_TO_SATPOINT                                     = "sat_to_satpoint"
 	STATISTIC_TO_COUNT                                  = "statistic_to_account"
 	WRITE_TRANSACTION_STARTING_BLOCK_COUNT_TO_TIMESTAMP = "write_transaction_starting_block_to_timestamp"
-
-	SCHEMA_VERSION = 3
+	SCHEMA_VERSION                                      = 3
 )
 
 var ctx context.Context
 
-type Auth struct {
-	UserName string
-	Password string
-}
-
-type UnspentOutputRange struct {
-	Outpoint *wire.OutPoint
-	Ranges   []int64
-}
-
-type Index struct {
-	Client                          *rpcclient.Client
-	Database                        *mongo.Database
-	FirstInscriptionHeight          int64
-	GenesisBlockCoinbaseTransaction *wire.MsgTx
-	GenesisBlockCoinbaseTxID        string
-	RpcUrl                          string
-}
-
-type Info struct {
-	BlockIndexed    int64
-	BranchPages     int64
-	FragmentBytes   int64
-	IndexFileSize   int64  // no use
-	IndexPath       string // no use
-	LeafPage        int64
-	MetaDataBytes   int64
-	OutputTraversed int64
-	PageSize        int64
-	SatRange        int64
-	StoredBytes     int64
-	Transactions    []TransactionInfo
-	TreeWeight      int64
-	UtxoIndex       int64
-}
-
-type TransactionInfo struct {
-	StartingBlockCount int64
-	StartingTimeTemp   int64
-}
-
-type Options struct {
-	BitcoinDataDir         string
-	ChainArgument          enum.ChainValue
-	Config                 string
-	ConfigDir              string
-	CookieFile             string
-	DataDir                string
-	FirstInscriptionHeight int64
-	HeightLimit            int64
-	Index                  string
-	IndexSats              bool
-	RegTest                bool
-	RpcUrl                 string
-	Wallet                 string
-}
-
+// Done: load certs
 func LoadCerts() ([]byte, error) {
 	certHomeDir := btcutil.AppDataDir("btcd", false)
 	certs, err := ioutil.ReadFile(filepath.Join(certHomeDir, "rpc.cert"))
@@ -144,11 +87,7 @@ func LoadConfig(opt *Options) (*os.File, error) {
 	}
 }
 
-func FormatBitcoinCoreVersion(version int64) string {
-	return fmt.Sprintf("%d.%d.%d", version/10000, version%10000/100, version%1000)
-}
-
-// Done
+// Done: Only need rpcUrl
 func GetBitcoinRPCClient(opt *Options) (*rpcclient.Client, error) {
 	certs, err := LoadCerts()
 	if err != nil {
@@ -169,6 +108,7 @@ func GetBitcoinRPCClient(opt *Options) (*rpcclient.Client, error) {
 	return client, nil
 }
 
+// Done: Only need rpcUrl and walletName
 func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.Client, error) {
 	client, err := GetBitcoinRPCClient(opt)
 	if err != nil {
@@ -186,13 +126,15 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 	return client, nil
 }
 
+// Need to improve
 func Open(opt *Options) (*Index, error) {
+	//Step 1: Connect RPC
 	client, err := GetBitcoinRPCClient(opt)
 	if err != nil {
 		return nil, err
 	}
 
-	//Step 2: Update MongoDB
+	//Step 2: Connect MongoDB
 	ctx = context.TODO() // init context global
 	uriConn := "mongodb+srv://tuankiet:kietlu1712@bankaccount.lfuju.mongodb.net/?retryWrites=true&w=majority"
 	option := options.Client().ApplyURI(uriConn)
@@ -224,8 +166,7 @@ func Open(opt *Options) (*Index, error) {
 func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 	utxos := make(map[wire.OutPoint]btcutil.Amount)
 	// client list unspent
-	client := index.Client
-	unspentRes, err := client.ListUnspent()
+	unspentRes, err := index.Client.ListUnspent()
 	if err != nil {
 		return nil, err
 	}
@@ -243,13 +184,13 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 		}] = btcutil.Amount(item.Amount)
 	}
 
-	listLockUnspent, err := client.ListLockUnspent()
+	listLockUnspent, err := index.Client.ListLockUnspent()
 	if err != nil {
 		return nil, err
 	}
 
 	for _, item := range listLockUnspent {
-		rawTx, err := client.GetRawTransaction(&item.Hash)
+		rawTx, err := index.Client.GetRawTransaction(&item.Hash)
 		if err != nil {
 			return nil, err
 		}
@@ -287,27 +228,9 @@ func List(index *Index, outpoint *wire.OutPoint) []int64 {
 	return []int64{}
 }
 
-// no use case use
-func GetUnspentOutputRanges(index *Index) ([]*UnspentOutputRange, error) {
-	unspentOutput, err := GetUnspentOutput(index)
-	if err != nil {
-		return nil, err
-	}
-
-	for _ = range unspentOutput {
-
-	}
-
-	return nil, nil
-}
-
 func HasSatIndex(index *Index) bool {
 	outpointToSatRange := index.Database.Collection(OUTPOINT_TO_SAT_RANGES)
-	if outpointToSatRange == nil {
-		return false
-	}
-
-	return true
+	return outpointToSatRange != nil
 }
 
 func RequirementSatIndex(index *Index) bool {
@@ -600,15 +523,6 @@ func GetTransactionBlockHash(index *Index, txId string) (*chainhash.Hash, error)
 // maybe no use
 func IsTransactionInActiveChain(index *Index) {
 
-}
-
-// impl soon (4): maybe no use
-func Find(index *Index, sat int64) (*src.SatPoint, error) {
-	if !RequirementSatIndex(index) {
-		return nil, errors.New("requires index created -- find")
-	}
-
-	return nil, nil
 }
 
 // maybe no use
