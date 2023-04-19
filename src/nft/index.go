@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -17,7 +16,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
-	"github.com/m25lab/bitcoin_nft/src/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -44,7 +42,7 @@ var ctx context.Context
 
 // Done: load certs
 func LoadCerts() ([]byte, error) {
-	certHomeDir := btcutil.AppDataDir("btcd", false)
+	certHomeDir := btcutil.AppDataDir("btcwallet", false)
 	certs, err := ioutil.ReadFile(filepath.Join(certHomeDir, "rpc.cert"))
 	if err != nil {
 		return nil, err
@@ -200,25 +198,25 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 		}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
 	}
 
-	outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
-	for outpoint := range utxos {
-		filter := bson.M{}
-		var key []byte
-		txId := blockchain.HashToBig(&outpoint.Hash)
-		key = append(key, txId.Bytes()...)
-		key = append(key, utils.IntToBytes(int(outpoint.Index))...)
-		filter["key"] = key
-		data := outpointToValue.FindOne(context.TODO(), filter)
-		if data.Err() != nil {
-			return nil, data.Err()
-		}
+	// outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
+	// for outpoint := range utxos {
+	// 	filter := bson.M{}
+	// 	var key []byte
+	// 	txId := blockchain.HashToBig(&outpoint.Hash)
+	// 	key = append(key, txId.Bytes()...)
+	// 	key = append(key, utils.IntToBytes(int(outpoint.Index))...)
+	// 	filter["key"] = key
+	// 	data := outpointToValue.FindOne(context.TODO(), filter)
+	// 	if data.Err() != nil {
+	// 		return nil, data.Err()
+	// 	}
 
-		var res OutPointToValue
-		err = data.Decode(&res)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// 	var res OutPointToValue
+	// 	err = data.Decode(&res)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	return utxos, nil
 }
