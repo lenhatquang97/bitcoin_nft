@@ -46,9 +46,8 @@ func CreateRun(passPhrase string, opt *Options) error {
 	dbPath := filepath.Join(basePath, wallet.WalletDBName)
 	fmt.Println("Creating the wallet...")
 
-	db, err := walletdb.Create("boltdb", dbPath, true)
+	db, err := walletdb.Create("bbolt", dbPath, true)
 	if err != nil {
-		fmt.Println("WTF")
 		return err
 	}
 	defer db.Close()
