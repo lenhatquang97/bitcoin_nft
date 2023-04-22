@@ -1,10 +1,11 @@
 package nft
 
 import (
+	"context"
 	"fmt"
+	"time"
 
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
 /*
@@ -15,36 +16,24 @@ import (
 * Step 3: Balance = Total balance - stored NFT
 * Needs integration test
  */
-func BalanceRun(opt *Options) error {
-	index, err := Open(opt)
+
+func BalanceRun() error {
+	lndConn, err := GetLndGrpcSetup()
 	if err != nil {
 		return err
 	}
+	defer lndConn.Close()
 
-	inscriptionOutput, err := GetInscription(index)
+	lncli := lnrpc.NewLightningClient(lndConn)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	walletBalanceReq := lnrpc.WalletBalanceRequest{}
+	result, err := lncli.WalletBalance(ctx, &walletBalanceReq)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Total balance: %d\n", result.TotalBalance)
+	fmt.Printf("Confirmed balance: %d\n", result.ConfirmedBalance)
+	fmt.Printf("Unconfirmed balance: %d\n", result.UnconfirmedBalance)
 
-	satPoints := make(map[wire.OutPoint]string)
-	for satPoint := range inscriptionOutput {
-		satPoints[satPoint.OutPoint] = ""
-	}
-
-	unspentOutput, err := GetUnspentOutput(index)
-	if err != nil {
-		return err
-	}
-
-	//Balances = total balance - NFT (NFT defines with satPoints)
-	var balance btcutil.Amount
-	for outpoint, amount := range unspentOutput {
-		_, ok := satPoints[outpoint]
-		if !ok {
-			balance += amount
-		}
-	}
-
-	fmt.Println("Balance: {}", balance.ToBTC())
 	return nil
 }

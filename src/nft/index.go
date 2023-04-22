@@ -6,22 +6,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
-	"github.com/m25lab/bitcoin_nft/src/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"gopkg.in/macaroon.v2"
 )
 
 // collection
@@ -40,127 +37,73 @@ const (
 	SCHEMA_VERSION                                      = 3
 )
 
-var ctx context.Context
+var maxMsgRecvSize = grpc.MaxCallRecvMsgSize(1 * 1024 * 1024 * 200)
 
-// Done: load certs
-func LoadCerts() ([]byte, error) {
-	certHomeDir := btcutil.AppDataDir("btcd", false)
-	certs, err := ioutil.ReadFile(filepath.Join(certHomeDir, "rpc.cert"))
+func ReadMacaroon(macPath string) (grpc.DialOption, error) {
+	// Load the specified macaroon file.
+	macBytes, err := ioutil.ReadFile(macPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read macaroon path : %v", err)
+	}
+
+	mac := &macaroon.Macaroon{}
+	if err = mac.UnmarshalBinary(macBytes); err != nil {
+		return nil, fmt.Errorf("unable to decode macaroon: %v", err)
+	}
+
+	macConstraints := []macaroons.Constraint{
+		macaroons.TimeoutConstraint(60),
+	}
+
+	// Apply constraints to the macaroon.
+	constrainedMac, err := macaroons.AddConstraints(mac, macConstraints...)
 	if err != nil {
 		return nil, err
 	}
-	return certs, nil
-}
 
-func GetDataDir(opt *Options) string {
-	path := ""
-	if opt.DataDir != "" {
-		path = opt.DataDir
-	} else {
-		dirname, err := os.UserConfigDir()
-		if err != nil {
-			return ""
-		}
-		path = dirname
+	// Now we append the macaroon credentials to the dial options.
+	cred, err := macaroons.NewMacaroonCredential(constrainedMac)
+	if err != nil {
+		return nil, fmt.Errorf("error creating macaroon credential: %v",
+			err)
 	}
-
-	return src.JoinWithDataDir(path, opt.ChainArgument)
-}
-
-func LoadConfig(opt *Options) (*os.File, error) {
-	if opt.Config != "" {
-		data, err := os.Open(opt.Config)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	} else {
-		if opt.ConfigDir != "" {
-			data, err := os.Open(opt.Config + "ord.yaml")
-			if err != nil {
-				return nil, err
-			}
-			return data, nil
-		}
-
-		return nil, errors.New("file doesn't exists")
-	}
+	return grpc.WithPerRPCCredentials(cred), nil
 }
 
 // Done: Only need rpcUrl
-func GetBitcoinRPCClient(opt *Options) (*rpcclient.Client, error) {
-	certs, err := LoadCerts()
+func GetLndGrpcSetup() (*grpc.ClientConn, error) {
+	lndDir := btcutil.AppDataDir("lnd", false)
+	macaroonFileLocation := filepath.Join(lndDir, "/data/chain/bitcoin/testnet/admin.macaroon")
+	tlsCertPath := filepath.Join(lndDir, "tls.cert")
+	macOption, err := ReadMacaroon(macaroonFileLocation)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := rpcclient.New(&rpcclient.ConnConfig{
-		Host:         opt.RpcUrl,
-		Endpoint:     "ws",
-		User:         "4bmeiF7E3ny8cGf8Ok6QJZy/0pk=",
-		Pass:         "2oljjSoRFzC5Go7hCGDID6xWi+c=",
-		Certificates: certs,
-	}, nil)
+	opts := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(maxMsgRecvSize),
+		macOption,
+	}
+
+	// TLS cannot be disabled, we'll always have a cert file to read.
+	creds, _ := credentials.NewClientTLSFromFile(tlsCertPath, "")
+	opts = append(opts, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial("localhost:10009", opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return conn, nil
 }
 
 // Done: Only need rpcUrl and walletName
 func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.Client, error) {
-	client, err := GetBitcoinRPCClient(opt)
-	if err != nil {
-		return nil, err
-	}
-
-	if !create {
-		result, err := client.LoadWallet(opt.Wallet)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println(result)
-	}
-
-	return client, nil
+	return nil, nil
 }
 
 // Need to improve
 func Open(opt *Options) (*Index, error) {
-	//Step 1: Connect RPC
-	client, err := GetBitcoinRPCClient(opt)
-	if err != nil {
-		return nil, err
-	}
-
-	//Step 2: Connect MongoDB
-	ctx = context.TODO() // init context global
-	uriConn := "mongodb+srv://tuankiet:kietlu1712@bankaccount.lfuju.mongodb.net/?retryWrites=true&w=majority"
-	option := options.Client().ApplyURI(uriConn)
-	mongoclient, err := mongo.Connect(ctx, option)
-	if err != nil {
-		return nil, err
-	}
-	err = mongoclient.Ping(ctx, readpref.Primary())
-	if err != nil {
-		return nil, err
-	}
-
-	//Step 3: Get height whether can connect to BTCD or not?
-	height, err := client.GetBlockCount()
-	if err != nil {
-		return nil, err
-	}
-
-	//TODO: Will add database collection after
-	return &Index{
-		GenesisBlockCoinbaseTransaction: chaincfg.TestNet3Params.GenesisBlock.Transactions[0],
-		GenesisBlockCoinbaseTxID:        "0",
-		Client:                          client,
-		FirstInscriptionHeight:          height,
-		RpcUrl:                          opt.RpcUrl,
-	}, nil
+	return nil, nil
 }
 
 func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
@@ -200,25 +143,25 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 		}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
 	}
 
-	outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
-	for outpoint := range utxos {
-		filter := bson.M{}
-		var key []byte
-		txId := blockchain.HashToBig(&outpoint.Hash)
-		key = append(key, txId.Bytes()...)
-		key = append(key, utils.IntToBytes(int(outpoint.Index))...)
-		filter["key"] = key
-		data := outpointToValue.FindOne(context.TODO(), filter)
-		if data.Err() != nil {
-			return nil, data.Err()
-		}
+	// outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
+	// for outpoint := range utxos {
+	// 	filter := bson.M{}
+	// 	var key []byte
+	// 	txId := blockchain.HashToBig(&outpoint.Hash)
+	// 	key = append(key, txId.Bytes()...)
+	// 	key = append(key, utils.IntToBytes(int(outpoint.Index))...)
+	// 	filter["key"] = key
+	// 	data := outpointToValue.FindOne(context.TODO(), filter)
+	// 	if data.Err() != nil {
+	// 		return nil, data.Err()
+	// 	}
 
-		var res OutPointToValue
-		err = data.Decode(&res)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// 	var res OutPointToValue
+	// 	err = data.Decode(&res)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	return utxos, nil
 }
