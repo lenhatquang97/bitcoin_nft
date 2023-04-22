@@ -1,14 +1,6 @@
 package nft
 
 import (
-	"fmt"
-	"path/filepath"
-	"time"
-
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcwallet/wallet"
-	"github.com/btcsuite/btcwallet/walletdb"
 	"github.com/m25lab/bitcoin_nft/src/mnemonic"
 )
 
@@ -39,24 +31,5 @@ func GenMnemonicAndSeed(passPhrase string) ([]byte, *CreateData, error) {
 }
 
 func CreateRun(passPhrase string, opt *Options) error {
-	privPass := []byte("password")
-	pubPass := []byte(wallet.InsecurePubPassphrase)
-
-	basePath := btcutil.AppDataDir(opt.DataDir, false)
-	dbPath := filepath.Join(basePath, wallet.WalletDBName)
-	fmt.Println("Creating the wallet...")
-
-	db, err := walletdb.Create("bbolt", dbPath, true)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	err = wallet.Create(db, pubPass, privPass, nil, &chaincfg.TestNet3Params, time.Now())
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("The wallet has been created successfully.")
 	return nil
 }
