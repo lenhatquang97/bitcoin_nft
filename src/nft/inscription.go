@@ -47,11 +47,16 @@ func InscriptionRun(opt *Options) error {
 
 	var res []InscriptionOutput
 	for location, inscriptionId := range inscriptions {
-		_, ok := unspentOutputs[location.OutPoint]
+		locationDeserialize, err := src.DeserializeSatPoint(location)
+		if err != nil {
+			return err
+		}
+
+		_, ok := unspentOutputs[locationDeserialize.OutPoint.Serialize()]
 		if ok {
 			res = append(res, InscriptionOutput{
 				InscriptionID: inscriptionId,
-				Location:      location,
+				Location:      *locationDeserialize,
 				Explorer:      explorer,
 			})
 		}

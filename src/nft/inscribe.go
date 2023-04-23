@@ -1,9 +1,11 @@
 package nft
 
 import (
+	"context"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"log"
+	"time"
 
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/m25lab/bitcoin_nft/src"
 )
@@ -23,7 +25,7 @@ type Inscribe struct {
 	NoBackup      bool
 	NoLimit       bool
 	DryRun        bool
-	Destination   btcutil.Address
+	Destination   string
 }
 
 func Run(inscribe *Inscribe, opt *Options) error {
@@ -33,14 +35,20 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	}
 
 	index, err := Open(opt)
+
 	if err != nil {
 		return err
 	}
 
-	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
+	lndConn, err := GetLndGrpcSetup()
 	if err != nil {
 		return err
 	}
+	defer lndConn.Close()
+
+	lncli := lnrpc.NewLightningClient(lndConn)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	newAddressReq := lnrpc.NewAddressRequest{Type: lnrpc.AddressType_TAPROOT_PUBKEY}
 
 	utxos, err := GetUnspentOutput(index)
 	if err != nil {
@@ -52,26 +60,30 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	firstAddress, err := lncli.NewAddress(ctx, &newAddressReq) // bech32m
 	if err != nil {
 		return err
 	}
 
-	secondAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	secondAddress, err := lncli.NewAddress(ctx, &newAddressReq) // bech32m
 	if err != nil {
 		return err
 	}
 
-	var commitTxChange []btcutil.Address
-	commitTxChange = append(commitTxChange, firstAddress)
-	commitTxChange = append(commitTxChange, secondAddress)
+	var commitTxChange []string
+	commitTxChange = append(commitTxChange, firstAddress.Address)
+	commitTxChange = append(commitTxChange, secondAddress.Address)
 
-	var revealTxDestination btcutil.Address
-	if inscribe.Destination != nil {
+	revealTxDestination := ""
+	if inscribe.Destination != "" {
 		revealTxDestination = inscribe.Destination
 	} else {
 		// handle error
-		revealTxDestination, _ = client.GetRawChangeAddressType("", "bech32m")
+		revealAddRes, err := lncli.NewAddress(ctx, &newAddressReq)
+		if err != nil {
+			return err
+		}
+		revealTxDestination = revealAddRes.Address
 	}
 
 	commitFeeRate := inscribe.CommitFeeRate
@@ -83,7 +95,8 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	utxos[revealTx.TxIn[0].PreviousOutPoint] = btcutil.Amount(unsignedCommitTx.TxOut[0].Value)
+	outpointConverted := ConvertToOutpoint(&revealTx.TxIn[0].PreviousOutPoint)
+	utxos[outpointConverted.Serialize()] = unsignedCommitTx.TxOut[0].Value
 
 	fees := CalculateFee(unsignedCommitTx, utxos) + CalculateFee(revealTx, utxos)
 	if inscribe.DryRun {
@@ -97,17 +110,30 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		signRawCommitTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
+		unsignedCommitTxHash := unsignedCommitTx.TxHash()
+
+		signRawCommitTx, err := lncli.SignMessage(ctx, &lnrpc.SignMessageRequest{
+			Msg: unsignedCommitTxHash.CloneBytes(),
+		})
 		if err != nil {
 			return err
 		}
 
-		commit, err := client.SendRawTransaction(signRawCommitTx, false)
+		commit, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
+			Data: []byte(signRawCommitTx.String()),
+			Peer: []byte(revealTxDestination),
+		})
+
 		if err != nil {
 			return err
 		}
 
-		reveal, err := client.SendRawTransaction(revealTx, false)
+		revealTxHash := revealTx.TxHash()
+		reveal, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
+			Data: revealTxHash.CloneBytes(),
+			Peer: []byte(revealTxDestination),
+		})
+
 		if err != nil {
 			return err
 		}

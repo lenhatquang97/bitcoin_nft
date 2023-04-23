@@ -147,27 +147,28 @@ func ToWitness(builder *txscript.ScriptBuilder) (wire.TxWitness, error) {
 	return witness, nil
 }
 
-func CalculateFee(tx *wire.MsgTx, utxos map[wire.OutPoint]btcutil.Amount) btcutil.Amount {
-	var sumTxIn btcutil.Amount
+func CalculateFee(tx *wire.MsgTx, utxos map[string]int64) btcutil.Amount {
+	var sumTxIn int64
 	for _, v := range tx.TxIn {
-		sumTxIn += utxos[v.PreviousOutPoint]
+		outpointConverted := ConvertToOutpoint(&v.PreviousOutPoint)
+		sumTxIn += utxos[outpointConverted.Serialize()]
 	}
 
-	var sumTxOut btcutil.Amount
+	var sumTxOut int64
 	for _, v := range tx.TxOut {
-		sumTxOut += btcutil.Amount(v.Value)
+		sumTxOut += v.Value
 	}
 
-	return sumTxIn - sumTxOut
+	return btcutil.Amount(sumTxIn - sumTxOut)
 }
 
 func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	inscription *Inscription,
-	inscriptions map[src.SatPoint]src.InscriptionId,
+	inscriptions map[string]src.InscriptionId,
 	network *chaincfg.Params,
-	utxos map[wire.OutPoint]btcutil.Amount,
-	change []btcutil.Address,
-	destination btcutil.Address,
+	utxos map[string]int64,
+	change []string,
+	destination string,
 	commitFeeRate float64,
 	revealFeeRate float64,
 	noLimit bool,
@@ -176,15 +177,26 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	if satpoint != nil {
 		satP = satpoint
 	} else {
-		inscribeUtxos := make(map[wire.OutPoint]string) // find about set in golang
+		inscribeUtxos := make(map[string]string) // find about set in golang
 		for inscrp := range inscriptions {
-			inscribeUtxos[inscrp.OutPoint] = ""
+			s, err := src.DeserializeSatPoint(inscrp)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			inscribeUtxos[s.OutPoint.Serialize()] = ""
 		}
+
 		for outpoint := range utxos {
 			_, ok := inscribeUtxos[outpoint]
 			if !ok {
+				outpointConverted, err := DeserializeOutpoint(outpoint)
+				if err != nil {
+					return nil, nil, err
+				}
+
 				satP = &src.SatPoint{
-					OutPoint: outpoint,
+					OutPoint: *outpointConverted,
 					OffSet:   0,
 				}
 				break
@@ -192,12 +204,18 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		}
 	}
 
+	satpointSerialize := satpoint.Serialize()
 	for inscribedSatpoint, inscriptionId := range inscriptions {
-		if inscribedSatpoint == *satpoint {
+		if inscribedSatpoint == satpointSerialize {
 			return nil, nil, fmt.Errorf("sat at %v sat poiont already inscribed", satpoint)
 		}
 
-		if inscribedSatpoint.OutPoint == satpoint.OutPoint {
+		satpointDeserialize, err := src.DeserializeSatPoint(inscribedSatpoint)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if satpointDeserialize.OutPoint.Serialize() == satpoint.OutPoint.Serialize() {
 			return nil, nil, fmt.Errorf("utxo already inscribed %v on sat %v", inscriptionId, inscribedSatpoint)
 		}
 	}
@@ -220,7 +238,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	ctrlBlock := tapRootSpendInfo.LeafMerkleProofs[0].ToControlBlock(pubKey)
 	rootHash := tapRootSpendInfo.RootNode.TapHash()
 	outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
-	commitTxAddress, _ := btcutil.NewAddressTaproot(outputKey.SerializeUncompressed(), network)
+	commitTxAddress, _ := btcutil.NewAddressTaproot(outputKey.SerializeUncompressed(), network) //???
 
 	_, revealFee := BuildRevealTransaction(&txscript.ControlBlock{
 		InternalKey:     ctrlBlock.InternalKey,
@@ -229,10 +247,11 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		InclusionProof:  ctrlBlock.InclusionProof,
 	}, revealFeeRate, nil, &wire.TxOut{
 		Value:    0,
-		PkScript: destination.ScriptAddress(),
+		PkScript: []byte(destination),
 	}, revealScript)
 
-	unsignedCommitTx, err := BuildTransactionWithValue(*satP, inscriptions, utxos, commitTxAddress, change, commitFeeRate, revealFee+TARGET_POSTAGE)
+	// Note: taproot address?
+	unsignedCommitTx, err := BuildTransactionWithValue(*satP, inscriptions, utxos, commitTxAddress.String(), change, commitFeeRate, revealFee+TARGET_POSTAGE)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,7 +277,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 			Hash:  unsignedCommitTx.TxHash(),
 			Index: uint32(vout),
 		}, &wire.TxOut{
-			PkScript: destination.ScriptAddress(),
+			PkScript: []byte(destination),
 			Value:    output.Value,
 		},
 		revealScript,

@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"io/ioutil"
+	"log"
 	"math"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -19,6 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/macaroon.v2"
+
+	walletrpc "github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 )
 
 // collection
@@ -38,6 +45,56 @@ const (
 )
 
 var maxMsgRecvSize = grpc.MaxCallRecvMsgSize(1 * 1024 * 1024 * 200)
+
+type Outpoint struct {
+	TxidBytes   []byte
+	TxidStr     string
+	OutputIndex uint32
+}
+
+func (o *Outpoint) Serialize() string {
+	seperator := ":"
+	res := string(o.TxidBytes) + seperator + o.TxidStr + seperator + strconv.Itoa(int(o.OutputIndex))
+	return res
+}
+
+func ConvertToOutpoint(o *wire.OutPoint) *Outpoint {
+	txId := o.Hash.String()
+	return &Outpoint{
+		TxidStr:     txId,
+		TxidBytes:   []byte(txId),
+		OutputIndex: o.Index,
+	}
+}
+
+func (o *Outpoint) IsEqual(out *wire.OutPoint) bool {
+	txHash, err := chainhash.NewHashFromStr(o.TxidStr)
+	if err != nil {
+		log.Print(err)
+		return false
+	}
+
+	return *txHash == out.Hash && o.OutputIndex == out.Index
+}
+
+func DeserializeOutpoint(value string) (*Outpoint, error) {
+	seperator := ":"
+	outpointValue := strings.Split(value, seperator)
+	if len(outpointValue) != 3 {
+		panic(fmt.Sprintf("Deserialize outpoint failed - %s, len = %d", value, len(outpointValue)))
+	}
+
+	outputIndex, err := strconv.Atoi(outpointValue[2])
+	if err != nil {
+		return nil, err
+	}
+
+	return &Outpoint{
+		TxidBytes:   []byte(outpointValue[0]),
+		TxidStr:     outpointValue[1],
+		OutputIndex: uint32(outputIndex),
+	}, nil
+}
 
 func ReadMacaroon(macPath string) (grpc.DialOption, error) {
 	// Load the specified macaroon file.
@@ -106,42 +163,54 @@ func Open(opt *Options) (*Index, error) {
 	return nil, nil
 }
 
-func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
-	utxos := make(map[wire.OutPoint]btcutil.Amount)
-	// client list unspent
-	unspentRes, err := index.Client.ListUnspent()
+func MappingOutpoint(inps []*lnrpc.Utxo) map[string]int64 {
+	res := make(map[string]int64)
+	for _, item := range inps {
+		outpoint := Outpoint{
+			TxidBytes:   item.Outpoint.TxidBytes,
+			TxidStr:     item.Outpoint.TxidStr,
+			OutputIndex: item.Outpoint.OutputIndex,
+		}
+		res[outpoint.Serialize()] = item.AmountSat
+	}
+
+	return res
+}
+
+func GetUnspentOutput(index *Index) (map[string]int64, error) {
+	lndConn, err := GetLndGrpcSetup()
+	if err != nil {
+		return nil, err
+	}
+	defer lndConn.Close()
+
+	walletClient := walletrpc.NewWalletKitClient(lndConn)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	unspentRes, err := walletClient.ListUnspent(ctx, &walletrpc.ListUnspentRequest{
+		Account: "",
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	for txid, item := range unspentRes {
-		txHash, err := chainhash.NewHashFromStr(item.TxID)
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
+	res := MappingOutpoint(unspentRes.Utxos)
 
-		utxos[wire.OutPoint{
-			Hash:  *txHash,
-			Index: uint32(txid),
-		}] = btcutil.Amount(item.Amount)
-	}
-
-	listLockUnspent, err := index.Client.ListLockUnspent()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, item := range listLockUnspent {
-		rawTx, err := index.Client.GetRawTransaction(&item.Hash)
-		if err != nil {
-			return nil, err
-		}
-		utxos[wire.OutPoint{
-			Hash:  item.Hash,
-			Index: item.Index,
-		}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
-	}
+	//listLockUnspent, err := index.Client.ListLockUnspent()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//for _, item := range listLockUnspent {
+	//	rawTx, err := index.Client.GetRawTransaction(&item.Hash)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	utxos[wire.OutPoint{
+	//		Hash:  item.Hash,
+	//		Index: item.Index,
+	//	}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
+	//}
 
 	// outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
 	// for outpoint := range utxos {
@@ -163,7 +232,7 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 	// 	}
 	// }
 
-	return utxos, nil
+	return res, nil
 }
 
 // **
@@ -238,7 +307,7 @@ func RateSatSatPoint(index *Index) {
 
 }
 
-// impl soon (4)
+// impl soon (4) no use
 func BlockHeader(index *Index, hash *chainhash.Hash) (*wire.BlockHeader, error) {
 	client := index.Client
 	if client == nil {
@@ -363,18 +432,18 @@ func GetInscriptionById(index *Index, inscriptionId *src.InscriptionId) (*Inscri
 }
 
 // impl soon (3)
-func GetInscriptionOnOutput(index *Index, outpoint *wire.OutPoint) ([]src.InscriptionId, error) {
+func GetInscriptionOnOutput(index *Index, outpoint Outpoint) ([]src.InscriptionId, error) {
 	if index.Database == nil {
 		return nil, errors.New("Database is nil")
 	}
 
 	lower, err := src.GetSatPointStore(&src.SatPoint{
-		OutPoint: *outpoint,
+		OutPoint: outpoint,
 		OffSet:   0,
 	})
 
 	higher, err := src.GetSatPointStore(&src.SatPoint{
-		OutPoint: *outpoint,
+		OutPoint: outpoint,
 		OffSet:   math.MaxInt64,
 	})
 
@@ -390,7 +459,7 @@ func GetInscriptionOnOutput(index *Index, outpoint *wire.OutPoint) ([]src.Inscri
 		return nil, err
 	}
 
-	satPointMap := make(map[src.SatPoint]src.InscriptionId)
+	satPointMap := make(map[string]src.InscriptionId)
 	for cursor.Next(context.TODO()) {
 		var res *SatPointToInscriptionID
 		err = cursor.Decode(&res)
@@ -407,7 +476,7 @@ func GetInscriptionOnOutput(index *Index, outpoint *wire.OutPoint) ([]src.Inscri
 			return nil, err
 		}
 
-		satPointMap[*parseSatPoint] = *parseInscriptionID
+		satPointMap[parseSatPoint.Serialize()] = *parseInscriptionID
 	}
 
 	if err := cursor.Err(); err != nil {
@@ -479,7 +548,7 @@ func GetBlockTime(index *Index) {
 }
 
 // impl soon (1)
-func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
+func GetInscription(index *Index) (map[string]src.InscriptionId, error) {
 	satPointToInscriptionId := index.Database.Collection(SAT_TO_INSCRIPTION_ID)
 	if satPointToInscriptionId == nil {
 		return nil, errors.New("collection SAT_TO_INSCRIPTION_ID is null")
@@ -490,7 +559,7 @@ func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
 		return nil, err
 	}
 
-	satPointMap := make(map[src.SatPoint]src.InscriptionId)
+	satPointMap := make(map[string]src.InscriptionId)
 	for cursor.Next(context.TODO()) {
 		var res *SatPointToInscriptionID
 		err = cursor.Decode(&res)
@@ -507,7 +576,7 @@ func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
 			return nil, err
 		}
 
-		satPointMap[*parseSatPoint] = *parseInscriptionID
+		satPointMap[parseSatPoint.Serialize()] = *parseInscriptionID
 	}
 
 	if err := cursor.Err(); err != nil {

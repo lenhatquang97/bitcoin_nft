@@ -3,16 +3,44 @@ package src
 import (
 	"errors"
 	"fmt"
-
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/m25lab/bitcoin_nft/src/nft"
 	"github.com/m25lab/bitcoin_nft/src/utils"
+	"strconv"
+	"strings"
 )
 
 type SatPoint struct {
-	OutPoint wire.OutPoint
+	OutPoint nft.Outpoint
 	OffSet   int64
+}
+
+func (s *SatPoint) Serialize() string {
+	outpointSerialized := s.OutPoint.Serialize()
+	offsetStr := strconv.Itoa(int(s.OffSet))
+	return outpointSerialized + "::" + offsetStr
+}
+
+func DeserializeSatPoint(value string) (*SatPoint, error) {
+	seprator := "::"
+	deserializeValue := strings.Split(value, seprator)
+	if len(deserializeValue) != 2 {
+		panic(fmt.Sprintf("Deserialize satpoint failed %s - %d", value, len(deserializeValue)))
+	}
+
+	outpoint, err := nft.DeserializeOutpoint(deserializeValue[0])
+	if err != nil {
+		return nil, err
+	}
+
+	offset, err := strconv.Atoi(deserializeValue[1])
+	if err != nil {
+		return nil, err
+	}
+
+	return &SatPoint{
+		OutPoint: *outpoint,
+		OffSet:   int64(offset),
+	}, nil
 }
 
 func GetSatPointStore(sat *SatPoint) ([]byte, error) {
@@ -25,9 +53,9 @@ func GetSatPointStore(sat *SatPoint) ([]byte, error) {
 	}
 
 	var key []byte
-	txId := blockchain.HashToBig(&sat.OutPoint.Hash)
-	key = append(key, txId.Bytes()...)
-	key = append(key, utils.IntToBytes(int(sat.OutPoint.Index))...)
+	txId := sat.OutPoint.TxidBytes
+	key = append(key, txId...)
+	key = append(key, utils.IntToBytes(int(sat.OutPoint.OutputIndex))...)
 	key = append(key, utils.IntToBytes(int(sat.OffSet))...)
 	return key, nil
 }
@@ -40,15 +68,13 @@ func LoadIntoSatPoint(input []byte) (*SatPoint, error) {
 	hashByte := input[:32]
 	index := input[32:36]
 	offset := input[36:]
-	hash, err := chainhash.NewHash(hashByte)
-	if err != nil {
-		return nil, err
-	}
 
+	idx := utils.BytesToInt(index)
 	return &SatPoint{
-		OutPoint: wire.OutPoint{
-			Hash:  *hash,
-			Index: uint32(utils.BytesToInt(index)),
+		OutPoint: nft.Outpoint{
+			TxidBytes:   hashByte,
+			TxidStr:     string(hashByte),
+			OutputIndex: uint32(idx),
 		}, OffSet: utils.BytesToInt(offset),
 	}, nil
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/m25lab/bitcoin_nft/src/nft"
 )
 
+// no use
 func GetBalance(opt *nft.Options) (*btcutil.Amount, error) {
 	client, err := nft.GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {
@@ -18,6 +19,7 @@ func GetBalance(opt *nft.Options) (*btcutil.Amount, error) {
 	return &result, err
 }
 
+// no use
 func GetAddress(opt *nft.Options) (*btcutil.Address, error) {
 	client, err := nft.GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {
@@ -30,6 +32,7 @@ func GetAddress(opt *nft.Options) (*btcutil.Address, error) {
 	return &address, nil
 }
 
+// no use
 func PrintUnspentOutputs(opt *nft.Options) {
 	client, err := nft.GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {

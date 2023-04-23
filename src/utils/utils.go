@@ -5,13 +5,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 )
 
 type Account struct {
-	Address btcutil.Address
-	Amount  btcutil.Amount
+	Address string
+	Amount  int64
 }
 
 func IntToBytes(i int) []byte {

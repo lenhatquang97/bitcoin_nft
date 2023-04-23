@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/gin-gonic/gin"
@@ -179,8 +178,8 @@ func (sv *Server) Inscription(c *gin.Context) {
 		c.JSON(500, err)
 	}
 
-	txId := blockchain.HashToBig(&satPoint.OutPoint.Hash)
-	output, err := nft.GetTransaction(sv.Index, string(txId.Bytes()))
+	txId := satPoint.OutPoint.TxidStr
+	output, err := nft.GetTransaction(sv.Index, txId)
 	if err != nil {
 		c.JSON(500, err)
 	}
@@ -218,19 +217,19 @@ func (sv *Server) Output(c *gin.Context) {
 		c.JSON(500, "Param input is nil")
 	}
 
-	var input *wire.OutPoint
+	var input nft.Outpoint
 	err := json.Unmarshal([]byte(q), &input)
 	if err != nil {
 		c.JSON(500, err)
 	}
 
-	txId := blockchain.HashToBig(&input.Hash)
-	tx, err := nft.GetTransaction(sv.Index, string(txId.Bytes()))
+	txId := input.TxidStr
+	tx, err := nft.GetTransaction(sv.Index, txId)
 	if err != nil {
 		c.JSON(500, err)
 	}
 
-	txOut := tx.TxOut[input.Index]
+	txOut := tx.TxOut[input.OutputIndex]
 	inscriptionIds, err := nft.GetInscriptionOnOutput(sv.Index, input)
 	if err != nil {
 		c.JSON(500, err)

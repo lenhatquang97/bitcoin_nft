@@ -1,19 +1,19 @@
 package nft
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"log"
+	"time"
 
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 )
 
 type SendData struct {
-	Address          btcutil.Address
+	Address          string
 	OutGoingType     enum.OutGoingTypeValue
 	OutGoingTypeData interface{}
 	FeeRate          float64
@@ -24,9 +24,11 @@ type SendDataOutput struct {
 }
 
 func SendRun(opt *Options, data *SendData) error {
-	if !data.Address.IsForNet(&chaincfg.TestNet3Params) {
-		return errors.New("Address is not valid")
-	}
+	//if !data.Address.IsForNet(&chaincfg.TestNet3Params) {
+	//	return errors.New("Address is not valid")
+	//}
+
+	// Check testnet address
 
 	index, err := Open(opt)
 	if err != nil {
@@ -49,6 +51,13 @@ func SendRun(opt *Options, data *SendData) error {
 	}
 
 	outGoing := new(src.SatPoint)
+	lndConn, err := GetLndGrpcSetup()
+	if err != nil {
+		return err
+	}
+	defer lndConn.Close()
+
+	lncli := lnrpc.NewLightningClient(lndConn)
 
 	switch data.OutGoingType {
 	case enum.OutGoingType.Satpoint:
@@ -58,7 +67,7 @@ func SendRun(opt *Options, data *SendData) error {
 		}
 
 		for inscriptionSatpoint := range inscriptions {
-			if *satpoint == inscriptionSatpoint {
+			if satpoint.Serialize() == inscriptionSatpoint {
 				s := "inscription must be spent by inscription id"
 				fmt.Println(s)
 				return errors.New(s)
@@ -77,26 +86,38 @@ func SendRun(opt *Options, data *SendData) error {
 			return err
 		}
 	case enum.OutGoingType.Amount:
-		allInscriptionOutput := make(map[wire.OutPoint]string)
+		allInscriptionOutput := make(map[string]string)
 		for inscriptionOuput := range inscriptions {
-			allInscriptionOutput[inscriptionOuput.OutPoint] = ""
+			satpointDeserialize, err := src.DeserializeSatPoint(inscriptionOuput)
+			if err != nil {
+				return err
+			}
+			allInscriptionOutput[satpointDeserialize.OutPoint.Serialize()] = ""
 		}
 
-		var walletInscriptionOutput []*wire.OutPoint
+		var walletInscriptionOutput []*Outpoint
 		for utxo := range unspentOutput {
 			_, ok := allInscriptionOutput[utxo]
 			if ok {
-				walletInscriptionOutput = append(walletInscriptionOutput, &utxo)
+				deserializeOutpoint, err := DeserializeOutpoint(utxo)
+				if err != nil {
+					return err
+				}
+				walletInscriptionOutput = append(walletInscriptionOutput, deserializeOutpoint)
 			}
 		}
 
-		amount := data.OutGoingTypeData.(btcutil.Amount)
-		err = client.LockUnspent(false, walletInscriptionOutput)
-		if err != nil {
-			return err
-		}
+		amount := data.OutGoingTypeData.(int64)
+		//err = client.LockUnspent(false, walletInscriptionOutput)
+		//if err != nil {
+		//	return err
+		//}
 
-		res, err := client.SendToAddress(data.Address, amount)
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+		res, err := lncli.SendCoins(ctx, &lnrpc.SendCoinsRequest{
+			Addr:   data.Address,
+			Amount: amount,
+		})
 		if err != nil {
 			return err
 		}
@@ -104,19 +125,22 @@ func SendRun(opt *Options, data *SendData) error {
 		fmt.Println("Chain hash: ", res)
 	}
 
-	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	newAddressReq := lnrpc.NewAddressRequest{Type: lnrpc.AddressType_TAPROOT_PUBKEY}
+
+	firstAddress, err := lncli.NewAddress(ctx, &newAddressReq) // bech32m
 	if err != nil {
 		return err
 	}
 
-	secondAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	secondAddress, err := lncli.NewAddress(ctx, &newAddressReq) // bech32m
 	if err != nil {
 		return err
 	}
 
-	var commitTxChange []btcutil.Address
-	commitTxChange = append(commitTxChange, firstAddress)
-	commitTxChange = append(commitTxChange, secondAddress)
+	var commitTxChange []string
+	commitTxChange = append(commitTxChange, firstAddress.Address)
+	commitTxChange = append(commitTxChange, secondAddress.Address)
 	unsignedCommitTx, err := BuildTransactionWithPostage(*outGoing, inscriptions, unspentOutput, data.Address, commitTxChange, data.FeeRate)
 	if err != nil {
 		return err
