@@ -11,7 +11,6 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/mempool"
-	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/utils"
 
 	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
@@ -162,9 +161,9 @@ func CalculateFee(tx *wire.MsgTx, utxos map[string]int64) btcutil.Amount {
 	return btcutil.Amount(sumTxIn - sumTxOut)
 }
 
-func CreateInscriptionTransaction(satpoint *src.SatPoint,
+func CreateInscriptionTransaction(satpoint *SatPoint,
 	inscription *Inscription,
-	inscriptions map[string]src.InscriptionId,
+	inscriptions map[string]InscriptionId,
 	network *chaincfg.Params,
 	utxos map[string]int64,
 	change []string,
@@ -173,13 +172,13 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	revealFeeRate float64,
 	noLimit bool,
 ) (*wire.MsgTx, *wire.MsgTx, error) {
-	var satP *src.SatPoint
+	var satP *SatPoint
 	if satpoint != nil {
 		satP = satpoint
 	} else {
 		inscribeUtxos := make(map[string]string) // find about set in golang
 		for inscrp := range inscriptions {
-			s, err := src.DeserializeSatPoint(inscrp)
+			s, err := DeserializeSatPoint(inscrp)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -195,7 +194,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 					return nil, nil, err
 				}
 
-				satP = &src.SatPoint{
+				satP = &SatPoint{
 					OutPoint: *outpointConverted,
 					OffSet:   0,
 				}
@@ -210,7 +209,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 			return nil, nil, fmt.Errorf("sat at %v sat poiont already inscribed", satpoint)
 		}
 
-		satpointDeserialize, err := src.DeserializeSatPoint(inscribedSatpoint)
+		satpointDeserialize, err := DeserializeSatPoint(inscribedSatpoint)
 		if err != nil {
 			return nil, nil, err
 		}

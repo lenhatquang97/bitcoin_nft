@@ -1,16 +1,16 @@
-package src
+package nft
 
 import (
 	"errors"
 	"fmt"
-	"github.com/m25lab/bitcoin_nft/src/nft"
-	"github.com/m25lab/bitcoin_nft/src/utils"
 	"strconv"
 	"strings"
+
+	"github.com/m25lab/bitcoin_nft/src/utils"
 )
 
 type SatPoint struct {
-	OutPoint nft.Outpoint
+	OutPoint Outpoint
 	OffSet   int64
 }
 
@@ -27,7 +27,7 @@ func DeserializeSatPoint(value string) (*SatPoint, error) {
 		panic(fmt.Sprintf("Deserialize satpoint failed %s - %d", value, len(deserializeValue)))
 	}
 
-	outpoint, err := nft.DeserializeOutpoint(deserializeValue[0])
+	outpoint, err := DeserializeOutpoint(deserializeValue[0])
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func LoadIntoSatPoint(input []byte) (*SatPoint, error) {
 
 	idx := utils.BytesToInt(index)
 	return &SatPoint{
-		OutPoint: nft.Outpoint{
+		OutPoint: Outpoint{
 			TxidBytes:   hashByte,
 			TxidStr:     string(hashByte),
 			OutputIndex: uint32(idx),

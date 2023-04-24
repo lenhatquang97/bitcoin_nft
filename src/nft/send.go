@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"log"
 	"time"
 
-	"github.com/m25lab/bitcoin_nft/src"
+	"github.com/lightningnetwork/lnd/lnrpc"
+
 	"github.com/m25lab/bitcoin_nft/src/enum"
 )
 
@@ -40,7 +40,7 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 
-	unspentOutput, err := GetUnspentOutput(index)
+	unspentOutput, err := GetUnspentOutput()
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 
-	outGoing := new(src.SatPoint)
+	outGoing := new(SatPoint)
 	lndConn, err := GetLndGrpcSetup()
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func SendRun(opt *Options, data *SendData) error {
 
 	switch data.OutGoingType {
 	case enum.OutGoingType.Satpoint:
-		satpoint := data.OutGoingTypeData.(*src.SatPoint)
+		satpoint := data.OutGoingTypeData.(*SatPoint)
 		if satpoint == nil {
 			return errors.New("Satpoint data is invalid")
 		}
@@ -75,7 +75,7 @@ func SendRun(opt *Options, data *SendData) error {
 		}
 		outGoing = satpoint
 	case enum.OutGoingType.InscriptionId:
-		inscriptionId := data.OutGoingTypeData.(*src.InscriptionId)
+		inscriptionId := data.OutGoingTypeData.(*InscriptionId)
 		if inscriptionId == nil {
 			return errors.New("inscription id data is invalid")
 		}
@@ -88,7 +88,7 @@ func SendRun(opt *Options, data *SendData) error {
 	case enum.OutGoingType.Amount:
 		allInscriptionOutput := make(map[string]string)
 		for inscriptionOuput := range inscriptions {
-			satpointDeserialize, err := src.DeserializeSatPoint(inscriptionOuput)
+			satpointDeserialize, err := DeserializeSatPoint(inscriptionOuput)
 			if err != nil {
 				return err
 			}

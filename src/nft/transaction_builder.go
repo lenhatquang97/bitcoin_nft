@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -11,7 +12,6 @@ import (
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 	"github.com/m25lab/bitcoin_nft/src/utils"
 )
@@ -28,8 +28,8 @@ type TransactionBuilder struct {
 	ChangeAddresses     []string
 	FeeRate             float64
 	Inputs              []Outpoint
-	Inscriptions        map[string]src.InscriptionId // map of satpoint
-	OutGoing            src.SatPoint
+	Inscriptions        map[string]InscriptionId // map of satpoint
+	OutGoing            SatPoint
 	Outputs             []utils.Account
 	Recipient           string
 	UnusedChangeAddress []string
@@ -38,8 +38,8 @@ type TransactionBuilder struct {
 	OutputValue         btcutil.Amount
 }
 
-func BuildTransactionWithValue(outGoing src.SatPoint,
-	inscriptions map[string]src.InscriptionId, // map of satpoint serialize
+func BuildTransactionWithValue(outGoing SatPoint,
+	inscriptions map[string]InscriptionId, // map of satpoint serialize
 	amount map[string]int64, //map of outpoint
 	recipient string,
 	change []string,
@@ -85,8 +85,8 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 	return BuildTransaction(transactionBuilder)
 }
 
-func BuildTransactionWithPostage(outGoing src.SatPoint,
-	inscriptions map[string]src.InscriptionId, // map of satpoint
+func BuildTransactionWithPostage(outGoing SatPoint,
+	inscriptions map[string]InscriptionId, // map of satpoint
 	amount map[string]int64, // map of outpoint
 	recipient string,
 	change []string,
@@ -107,7 +107,7 @@ func BuildTransactionWithPostage(outGoing src.SatPoint,
 
 func SelectOutGoing(transactionBuilder *TransactionBuilder) (*TransactionBuilder, error) {
 	for inscribeSatPoint, _ := range transactionBuilder.Inscriptions {
-		satpointDeserialize, err := src.DeserializeSatPoint(inscribeSatPoint)
+		satpointDeserialize, err := DeserializeSatPoint(inscribeSatPoint)
 		if err != nil {
 			return nil, err
 		}
@@ -480,7 +480,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoint *Outpoint, amount btcutil.Amount, err error) {
 	inscriptionUtxos := make(map[string]string) // map outpoint
 	for satPoint := range builder.Inscriptions {
-		satpointDeserialize, err := src.DeserializeSatPoint(satPoint)
+		satpointDeserialize, err := DeserializeSatPoint(satPoint)
 		if err != nil {
 			return nil, 0, err
 		}

@@ -3,7 +3,6 @@ package nft
 import (
 	"fmt"
 
-	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 )
 
@@ -12,8 +11,8 @@ import (
  */
 
 type InscriptionOutput struct {
-	InscriptionID src.InscriptionId
-	Location      src.SatPoint
+	InscriptionID InscriptionId
+	Location      SatPoint
 	Explorer      string
 }
 
@@ -28,7 +27,7 @@ func InscriptionRun(opt *Options) error {
 		return err
 	}
 
-	unspentOutputs, err := GetUnspentOutput(index)
+	unspentOutputs, err := GetUnspentOutput()
 	if err != nil {
 		return err
 	}
@@ -47,7 +46,7 @@ func InscriptionRun(opt *Options) error {
 
 	var res []InscriptionOutput
 	for location, inscriptionId := range inscriptions {
-		locationDeserialize, err := src.DeserializeSatPoint(location)
+		locationDeserialize, err := DeserializeSatPoint(location)
 		if err != nil {
 			return err
 		}

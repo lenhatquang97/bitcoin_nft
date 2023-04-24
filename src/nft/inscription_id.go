@@ -1,9 +1,10 @@
-package src
+package nft
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/m25lab/bitcoin_nft/src/utils"
 )
 

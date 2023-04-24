@@ -2,23 +2,22 @@ package nft
 
 import (
 	"context"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"log"
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/m25lab/bitcoin_nft/src"
+	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
 type Output struct {
 	Commit        string
-	InscriptionID src.InscriptionId
+	InscriptionID InscriptionId
 	Reveal        string
 	Fee           int64
 }
 
 type Inscribe struct {
-	SatPoint      src.SatPoint
+	SatPoint      SatPoint
 	FeeRate       float64
 	CommitFeeRate float64
 	File          string
@@ -50,7 +49,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	newAddressReq := lnrpc.NewAddressRequest{Type: lnrpc.AddressType_TAPROOT_PUBKEY}
 
-	utxos, err := GetUnspentOutput(index)
+	utxos, err := GetUnspentOutput()
 	if err != nil {
 		return err
 	}
@@ -104,7 +103,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		output := Output{
 			Commit:        unsignedCommitTx.TxHash().String(),
 			Reveal:        revealTx.TxHash().String(),
-			InscriptionID: src.InscriptionId{},
+			InscriptionID: InscriptionId{},
 			Fee:           int64(fees),
 		}
 
@@ -141,7 +140,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		output := Output{
 			Commit:        commit.String(),
 			Reveal:        reveal.String(),
-			InscriptionID: src.InscriptionId{},
+			InscriptionID: InscriptionId{},
 			Fee:           int64(fees),
 		}
 
