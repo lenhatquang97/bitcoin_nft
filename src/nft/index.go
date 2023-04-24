@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/m25lab/bitcoin_nft/src/layer1"
 	"io/ioutil"
 	"log"
 	"math"
@@ -155,7 +156,12 @@ func GetLndGrpcSetup() (*grpc.ClientConn, error) {
 
 // Done: Only need rpcUrl and walletName
 func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.Client, error) {
-	return nil, nil
+	client, err := layer1.GetBitcoinRPCClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 // Need to improve
@@ -286,8 +292,8 @@ func BlockHeader(index *Index, hash *chainhash.Hash) (*wire.BlockHeader, error) 
 
 // impl soon (2)
 func GetBlockByHeight(index *Index, height int64) (*wire.MsgBlock, error) {
-	client := index.Client
-	if client == nil {
+	client, err := layer1.GetBitcoinRPCClient()
+	if err == nil {
 		panic("Client is nil")
 	}
 
@@ -310,7 +316,12 @@ func GetBlockByHash(index *Index, hash *chainhash.Hash) (*wire.MsgBlock, error) 
 		return nil, errors.New("Client is nil")
 	}
 
-	data, err := index.Client.GetBlock(hash)
+	client, err := layer1.GetBitcoinRPCClient()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := client.GetBlock(hash)
 	return data, err
 }
 
@@ -475,9 +486,9 @@ func GetTransaction(index *Index, txId string) (*wire.MsgTx, error) {
 
 // impl soon (2)
 func GetTransactionBlockHash(index *Index, txId string) (*chainhash.Hash, error) {
-	client := index.Client
-	if client == nil {
-		panic("Client is nil")
+	client, err := layer1.GetBitcoinRPCClient()
+	if err != nil {
+		return nil, err
 	}
 
 	// convert txid to tx hash
