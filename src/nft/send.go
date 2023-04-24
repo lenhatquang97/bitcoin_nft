@@ -24,18 +24,7 @@ type SendDataOutput struct {
 }
 
 func SendRun(opt *Options, data *SendData) error {
-	//if !data.Address.IsForNet(&chaincfg.TestNet3Params) {
-	//	return errors.New("Address is not valid")
-	//}
-
-	// Check testnet address
-
 	index, err := Open(opt)
-	if err != nil {
-		return err
-	}
-	Update(index)
-	client, err := GetBitcoinRPCClientForWalletCommand(opt, false)
 	if err != nil {
 		return err
 	}
@@ -50,7 +39,7 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 
-	outGoing := new(SatPoint)
+	// outGoing := new(SatPoint)
 	lndConn, err := GetLndGrpcSetup()
 	if err != nil {
 		return err
@@ -73,14 +62,14 @@ func SendRun(opt *Options, data *SendData) error {
 				return errors.New(s)
 			}
 		}
-		outGoing = satpoint
+		// outGoing = satpoint
 	case enum.OutGoingType.InscriptionId:
 		inscriptionId := data.OutGoingTypeData.(*InscriptionId)
 		if inscriptionId == nil {
 			return errors.New("inscription id data is invalid")
 		}
 
-		outGoing, err = GetInscriptionSatPointById(index, inscriptionId)
+		//outGoing, err = GetInscriptionSatPointById(index, inscriptionId)
 		if err != nil {
 			log.Printf("inscription %v not found", inscriptionId)
 			return err
@@ -141,20 +130,20 @@ func SendRun(opt *Options, data *SendData) error {
 	var commitTxChange []string
 	commitTxChange = append(commitTxChange, firstAddress.Address)
 	commitTxChange = append(commitTxChange, secondAddress.Address)
-	unsignedCommitTx, err := BuildTransactionWithPostage(*outGoing, inscriptions, unspentOutput, data.Address, commitTxChange, data.FeeRate)
+	//unsignedCommitTx, err := BuildTransactionWithPostage(*outGoing, inscriptions, unspentOutput, data.Address, commitTxChange, data.FeeRate)
 	if err != nil {
 		return err
 	}
 
-	signedTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
-	if err != nil {
-		return err
-	}
+	// signedTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
+	// if err != nil {
+	// 	return err
+	// }
 
-	res, err := client.SendRawTransaction(signedTx, false)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Tx hash: ", res)
+	// res, err := client.SendRawTransaction(signedTx, false)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println("Tx hash: ", res)
 	return nil
 }

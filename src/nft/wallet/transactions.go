@@ -13,10 +13,6 @@ type TransactionOutput struct {
 	Confirmations int64
 }
 
-/*
-* No need to review
- */
-
 func RetrieveTransaction() (*lnrpc.TransactionDetails, error) {
 	lndConn, err := nft.GetLndGrpcSetup()
 	if err != nil {

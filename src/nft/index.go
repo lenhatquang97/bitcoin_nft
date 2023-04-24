@@ -198,7 +198,6 @@ func GetUnspentOutput() (map[string]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	res := MappingOutpoint(unspentRes.Utxos)
 	return res, nil
 }
