@@ -10,6 +10,9 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 
 	"github.com/m25lab/bitcoin_nft/src/enum"
+	"github.com/m25lab/bitcoin_nft/src/layer2"
+	"github.com/m25lab/bitcoin_nft/src/model"
+	"github.com/m25lab/bitcoin_nft/src/wallet"
 )
 
 type SendData struct {
@@ -29,7 +32,7 @@ func SendRun(opt *Options, data *SendData) error {
 		return err
 	}
 
-	unspentOutput, err := GetUnspentOutput()
+	unspentOutput, err := wallet.GetUnspentOutput()
 	if err != nil {
 		return err
 	}
@@ -40,7 +43,7 @@ func SendRun(opt *Options, data *SendData) error {
 	}
 
 	// outGoing := new(SatPoint)
-	lndConn, err := GetLndGrpcSetup()
+	lndConn, err := layer2.GetLndGrpcSetup()
 	if err != nil {
 		return err
 	}
@@ -84,11 +87,11 @@ func SendRun(opt *Options, data *SendData) error {
 			allInscriptionOutput[satpointDeserialize.OutPoint.Serialize()] = ""
 		}
 
-		var walletInscriptionOutput []*Outpoint
+		var walletInscriptionOutput []*model.Outpoint
 		for utxo := range unspentOutput {
 			_, ok := allInscriptionOutput[utxo]
 			if ok {
-				deserializeOutpoint, err := DeserializeOutpoint(utxo)
+				deserializeOutpoint, err := model.DeserializeOutpoint(utxo)
 				if err != nil {
 					return err
 				}

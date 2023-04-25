@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/m25lab/bitcoin_nft/src/enum"
+	"github.com/m25lab/bitcoin_nft/src/wallet"
 )
 
 /*
@@ -27,7 +28,7 @@ func InscriptionRun(opt *Options) error {
 		return err
 	}
 
-	unspentOutputs, err := GetUnspentOutput()
+	unspentOutputs, err := wallet.GetUnspentOutput()
 	if err != nil {
 		return err
 	}

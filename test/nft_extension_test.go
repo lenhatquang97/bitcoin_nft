@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/m25lab/bitcoin_nft/src/nft"
+	"github.com/m25lab/bitcoin_nft/src/inscript"
+	"github.com/m25lab/bitcoin_nft/src/model"
 )
 
 func TestWithSimplePDF(t *testing.T) {
-	inscription, _ := nft.NftFromFile("./Consensus4.pdf")
-	script := nft.NftRevealScript(inscription, *txscript.NewScriptBuilder())
-	result := nft.ParseScriptToInscription(script)
+	inscription, _ := inscript.NftFromFile("./Consensus4.pdf")
+	script := inscript.NftRevealScript(inscription, *txscript.NewScriptBuilder())
+	result := inscript.ParseScriptToInscription(script)
 	err := os.WriteFile("./final.pdf", result.Body, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -21,12 +22,12 @@ func TestWithSimplePDF(t *testing.T) {
 }
 
 func TestWithSimpleText(t *testing.T) {
-	inscription := nft.Inscription{
+	inscription := model.Inscription{
 		ContentType: "text/plain",
 		Body:        []byte("Hello World"),
 	}
-	script := nft.NftRevealScript(&inscription, *txscript.NewScriptBuilder())
-	result := nft.ParseScriptToInscription(script)
+	script := inscript.NftRevealScript(&inscription, *txscript.NewScriptBuilder())
+	result := inscript.ParseScriptToInscription(script)
 
 	actualString := string(result.Body)
 	expectedString := "Hello World"

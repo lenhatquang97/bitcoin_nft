@@ -13,6 +13,8 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src/enum"
+	"github.com/m25lab/bitcoin_nft/src/inscript"
+	"github.com/m25lab/bitcoin_nft/src/model"
 	"github.com/m25lab/bitcoin_nft/src/utils"
 )
 
@@ -27,7 +29,7 @@ type TransactionBuilder struct {
 	Amounts             map[string]int64 // map of outpoint
 	ChangeAddresses     []string
 	FeeRate             float64
-	Inputs              []Outpoint
+	Inputs              []model.Outpoint
 	Inscriptions        map[string]InscriptionId // map of satpoint
 	OutGoing            SatPoint
 	Outputs             []utils.Account
@@ -367,7 +369,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 				Hash:  *txHash,
 				Index: outpoint.OutputIndex,
 			},
-			Sequence:        ENABLE_RBF_NO_LOCKTIME,
+			Sequence:        inscript.ENABLE_RBF_NO_LOCKTIME,
 			SignatureScript: emptyScript,
 			Witness:         emptyWitness,
 		})
@@ -398,7 +400,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 			isFind = true
 			break
 		} else {
-			outpoint := ConvertToOutpoint(&txIn.PreviousOutPoint)
+			outpoint := model.ConvertToOutpoint(&txIn.PreviousOutPoint)
 			satOffset += int64(builder.Amounts[outpoint.Serialize()])
 		}
 	}
@@ -448,7 +450,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 
 	var actualFee btcutil.Amount
 	for _, txIn := range tx.TxIn {
-		outpoint := ConvertToOutpoint(&txIn.PreviousOutPoint)
+		outpoint := model.ConvertToOutpoint(&txIn.PreviousOutPoint)
 		actualFee += btcutil.Amount(builder.Amounts[outpoint.Serialize()])
 	}
 
@@ -477,7 +479,7 @@ func Build(builder *TransactionBuilder) (*wire.MsgTx, error) {
 	return tx, nil
 }
 
-func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoint *Outpoint, amount btcutil.Amount, err error) {
+func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoint *model.Outpoint, amount btcutil.Amount, err error) {
 	inscriptionUtxos := make(map[string]string) // map outpoint
 	for satPoint := range builder.Inscriptions {
 		satpointDeserialize, err := DeserializeSatPoint(satPoint)
@@ -500,7 +502,7 @@ func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoi
 		}
 		if int64(value) >= minimumValue {
 			var err error
-			outpoint, err = DeserializeOutpoint(utxo)
+			outpoint, err = model.DeserializeOutpoint(utxo)
 			if err != nil {
 				return nil, 0, err
 			}

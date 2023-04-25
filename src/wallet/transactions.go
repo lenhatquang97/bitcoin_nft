@@ -1,11 +1,11 @@
-package nft
+package wallet
 
 import (
 	"context"
 	"time"
 
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/m25lab/bitcoin_nft/src/nft"
+	"github.com/m25lab/bitcoin_nft/src/layer2"
 )
 
 type TransactionOutput struct {
@@ -14,7 +14,7 @@ type TransactionOutput struct {
 }
 
 func RetrieveTransaction() (*lnrpc.TransactionDetails, error) {
-	lndConn, err := nft.GetLndGrpcSetup()
+	lndConn, err := layer2.GetLndGrpcSetup()
 	if err != nil {
 		return nil, err
 	}

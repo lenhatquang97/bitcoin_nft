@@ -4,29 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/m25lab/bitcoin_nft/src/layer1"
-	"io/ioutil"
-	"log"
 	"math"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/m25lab/bitcoin_nft/src/inscript"
+	"github.com/m25lab/bitcoin_nft/src/layer1"
+	"github.com/m25lab/bitcoin_nft/src/model"
 
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 	"go.mongodb.org/mongo-driver/bson"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"gopkg.in/macaroon.v2"
-
-	walletrpc "github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 )
 
 // collection
@@ -45,115 +33,6 @@ const (
 	SCHEMA_VERSION                                      = 3
 )
 
-var maxMsgRecvSize = grpc.MaxCallRecvMsgSize(1 * 1024 * 1024 * 200)
-
-const SEPARATOR = "@m25@"
-
-type Outpoint struct {
-	TxidBytes   []byte
-	TxidStr     string
-	OutputIndex uint32
-}
-
-func (o *Outpoint) Serialize() string {
-	res := string(o.TxidBytes) + SEPARATOR + o.TxidStr + SEPARATOR + strconv.Itoa(int(o.OutputIndex))
-	return res
-}
-
-func ConvertToOutpoint(o *wire.OutPoint) *Outpoint {
-	txId := o.Hash.String()
-	return &Outpoint{
-		TxidStr:     txId,
-		TxidBytes:   []byte(txId),
-		OutputIndex: o.Index,
-	}
-}
-
-func (o *Outpoint) IsEqual(out *wire.OutPoint) bool {
-	txHash, err := chainhash.NewHashFromStr(o.TxidStr)
-	if err != nil {
-		log.Print(err)
-		return false
-	}
-
-	return *txHash == out.Hash && o.OutputIndex == out.Index
-}
-
-func DeserializeOutpoint(value string) (*Outpoint, error) {
-	outpointValue := strings.Split(value, SEPARATOR)
-	if len(outpointValue) != 3 {
-		panic(fmt.Sprintf("Deserialize outpoint failed - %s, len = %d", value, len(outpointValue)))
-	}
-
-	outputIndex, err := strconv.Atoi(outpointValue[2])
-	if err != nil {
-		return nil, err
-	}
-
-	return &Outpoint{
-		TxidBytes:   []byte(outpointValue[0]),
-		TxidStr:     outpointValue[1],
-		OutputIndex: uint32(outputIndex),
-	}, nil
-}
-
-func ReadMacaroon(macPath string) (grpc.DialOption, error) {
-	// Load the specified macaroon file.
-	macBytes, err := ioutil.ReadFile(macPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read macaroon path : %v", err)
-	}
-
-	mac := &macaroon.Macaroon{}
-	if err = mac.UnmarshalBinary(macBytes); err != nil {
-		return nil, fmt.Errorf("unable to decode macaroon: %v", err)
-	}
-
-	macConstraints := []macaroons.Constraint{
-		macaroons.TimeoutConstraint(60),
-	}
-
-	// Apply constraints to the macaroon.
-	constrainedMac, err := macaroons.AddConstraints(mac, macConstraints...)
-	if err != nil {
-		return nil, err
-	}
-
-	// Now we append the macaroon credentials to the dial options.
-	cred, err := macaroons.NewMacaroonCredential(constrainedMac)
-	if err != nil {
-		return nil, fmt.Errorf("error creating macaroon credential: %v",
-			err)
-	}
-	return grpc.WithPerRPCCredentials(cred), nil
-}
-
-// Done: Only need rpcUrl
-func GetLndGrpcSetup() (*grpc.ClientConn, error) {
-	lndDir := btcutil.AppDataDir("lnd", false)
-	macaroonFileLocation := filepath.Join(lndDir, "/data/chain/bitcoin/testnet/admin.macaroon")
-	tlsCertPath := filepath.Join(lndDir, "tls.cert")
-	macOption, err := ReadMacaroon(macaroonFileLocation)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := []grpc.DialOption{
-		grpc.WithDefaultCallOptions(maxMsgRecvSize),
-		macOption,
-	}
-
-	// TLS cannot be disabled, we'll always have a cert file to read.
-	creds, _ := credentials.NewClientTLSFromFile(tlsCertPath, "")
-	opts = append(opts, grpc.WithTransportCredentials(creds))
-	conn, err := grpc.Dial("localhost:10009", opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return conn, nil
-}
-
 // Done: Only need rpcUrl and walletName
 func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.Client, error) {
 	client, err := layer1.GetBitcoinRPCClient()
@@ -167,39 +46,6 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 // Need to improve
 func Open(opt *Options) (*Index, error) {
 	return nil, nil
-}
-
-func MappingOutpoint(inps []*lnrpc.Utxo) map[string]int64 {
-	res := make(map[string]int64)
-	for _, item := range inps {
-		outpoint := Outpoint{
-			TxidBytes:   item.Outpoint.TxidBytes,
-			TxidStr:     item.Outpoint.TxidStr,
-			OutputIndex: item.Outpoint.OutputIndex,
-		}
-		res[outpoint.Serialize()] = item.AmountSat
-	}
-
-	return res
-}
-
-func GetUnspentOutput() (map[string]int64, error) {
-	lndConn, err := GetLndGrpcSetup()
-	if err != nil {
-		return nil, err
-	}
-	defer lndConn.Close()
-
-	walletClient := walletrpc.NewWalletKitClient(lndConn)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	unspentRes, err := walletClient.ListUnspent(ctx, &walletrpc.ListUnspentRequest{})
-	if err != nil {
-		return nil, err
-	}
-	res := MappingOutpoint(unspentRes.Utxos)
-	return res, nil
 }
 
 // **
@@ -367,7 +213,7 @@ func GetInscriptionSatPointById(index *Index, inscriptionId *InscriptionId) (*Sa
 }
 
 // impl soon (3)
-func GetInscriptionById(index *Index, inscriptionId *InscriptionId) (*Inscription, error) {
+func GetInscriptionById(index *Index, inscriptionId *InscriptionId) (*model.Inscription, error) {
 	if index.Database == nil {
 		return nil, errors.New("Client data is nil")
 	}
@@ -400,11 +246,11 @@ func GetInscriptionById(index *Index, inscriptionId *InscriptionId) (*Inscriptio
 		return nil, err
 	}
 
-	return NftFromTransaction(tx)
+	return inscript.NftFromTransaction(tx)
 }
 
 // impl soon (3)
-func GetInscriptionOnOutput(index *Index, outpoint Outpoint) ([]InscriptionId, error) {
+func GetInscriptionOnOutput(index *Index, outpoint model.Outpoint) ([]InscriptionId, error) {
 	if index.Database == nil {
 		return nil, errors.New("Database is nil")
 	}

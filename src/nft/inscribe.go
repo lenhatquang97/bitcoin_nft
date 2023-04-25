@@ -7,6 +7,10 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/m25lab/bitcoin_nft/src/inscript"
+	"github.com/m25lab/bitcoin_nft/src/layer2"
+	"github.com/m25lab/bitcoin_nft/src/model"
+	"github.com/m25lab/bitcoin_nft/src/wallet"
 )
 
 type Output struct {
@@ -28,7 +32,7 @@ type Inscribe struct {
 }
 
 func Run(inscribe *Inscribe, opt *Options) error {
-	inscription, err := NftFromFile(inscribe.File)
+	inscription, err := inscript.NftFromFile(inscribe.File)
 	if err != nil {
 		return err
 	}
@@ -39,7 +43,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	lndConn, err := GetLndGrpcSetup()
+	lndConn, err := layer2.GetLndGrpcSetup()
 	if err != nil {
 		return err
 	}
@@ -49,7 +53,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	newAddressReq := lnrpc.NewAddressRequest{Type: lnrpc.AddressType_TAPROOT_PUBKEY}
 
-	utxos, err := GetUnspentOutput()
+	utxos, err := wallet.GetUnspentOutput()
 	if err != nil {
 		return err
 	}
@@ -94,7 +98,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	outpointConverted := ConvertToOutpoint(&revealTx.TxIn[0].PreviousOutPoint)
+	outpointConverted := model.ConvertToOutpoint(&revealTx.TxIn[0].PreviousOutPoint)
 	utxos[outpointConverted.Serialize()] = unsignedCommitTx.TxOut[0].Value
 
 	fees := CalculateFee(unsignedCommitTx, utxos) + CalculateFee(revealTx, utxos)

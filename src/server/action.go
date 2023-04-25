@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/gin-gonic/gin"
-	"github.com/m25lab/bitcoin_nft/src"
+	"github.com/m25lab/bitcoin_nft/src/model"
 	"github.com/m25lab/bitcoin_nft/src/nft"
 )
 
@@ -19,7 +20,7 @@ func (sv *Server) Home(ctx *gin.Context) {
 	type HomeResponse struct {
 		Last           int64
 		Blocks         string
-		InscriptionIds []src.InscriptionId
+		InscriptionIds []nft.InscriptionId
 	}
 
 	_ = nft.GetBlock(sv.Index)
@@ -99,7 +100,7 @@ func (sv *Server) Content(c *gin.Context) {
 		c.JSON(404, "Param is nil")
 	}
 
-	var input *src.InscriptionId
+	var input *nft.InscriptionId
 	err := json.Unmarshal([]byte(q), input)
 	if err != nil {
 		c.JSON(500, err)
@@ -162,7 +163,7 @@ func (sv *Server) Inscription(c *gin.Context) {
 		c.JSON(404, "Param is empty")
 	}
 
-	var input *src.InscriptionId
+	var input *nft.InscriptionId
 	err := json.Unmarshal([]byte(q), &input)
 	if err != nil {
 		c.JSON(500, err)
@@ -185,8 +186,8 @@ func (sv *Server) Inscription(c *gin.Context) {
 	}
 
 	type response struct {
-		Inscription *nft.Inscription `json:"inscription"`
-		Output      *wire.MsgTx      `json:"output"`
+		Inscription *model.Inscription `json:"inscription"`
+		Output      *wire.MsgTx        `json:"output"`
 	}
 
 	c.JSON(200, response{
@@ -217,7 +218,7 @@ func (sv *Server) Output(c *gin.Context) {
 		c.JSON(500, "Param input is nil")
 	}
 
-	var input nft.Outpoint
+	var input model.Outpoint
 	err := json.Unmarshal([]byte(q), &input)
 	if err != nil {
 		c.JSON(500, err)
@@ -237,7 +238,7 @@ func (sv *Server) Output(c *gin.Context) {
 
 	type response struct {
 		TxOut          *wire.TxOut         `json:"txOut"`
-		InscriptionIds []src.InscriptionId `json:"inscriptionIds"`
+		InscriptionIds []nft.InscriptionId `json:"inscriptionIds"`
 	}
 
 	c.JSON(200, response{
@@ -288,7 +289,7 @@ func (sv *Server) Transaction(c *gin.Context) {
 		c.JSON(500, "Param is nil")
 	}
 
-	inscription, err := nft.GetInscriptionById(sv.Index, &src.InscriptionId{
+	inscription, err := nft.GetInscriptionById(sv.Index, &nft.InscriptionId{
 		TxID: txId,
 	})
 
@@ -302,8 +303,8 @@ func (sv *Server) Transaction(c *gin.Context) {
 	}
 
 	type response struct {
-		Hash        *chainhash.Hash  `json:"hash"`
-		Inscription *nft.Inscription `json:"inscription"`
+		Hash        *chainhash.Hash    `json:"hash"`
+		Inscription *model.Inscription `json:"inscription"`
 	}
 
 	c.JSON(200, response{

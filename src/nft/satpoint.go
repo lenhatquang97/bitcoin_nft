@@ -6,11 +6,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/m25lab/bitcoin_nft/src/model"
 	"github.com/m25lab/bitcoin_nft/src/utils"
 )
 
 type SatPoint struct {
-	OutPoint Outpoint
+	OutPoint model.Outpoint
 	OffSet   int64
 }
 
@@ -27,7 +28,7 @@ func DeserializeSatPoint(value string) (*SatPoint, error) {
 		panic(fmt.Sprintf("Deserialize satpoint failed %s - %d", value, len(deserializeValue)))
 	}
 
-	outpoint, err := DeserializeOutpoint(deserializeValue[0])
+	outpoint, err := model.DeserializeOutpoint(deserializeValue[0])
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func LoadIntoSatPoint(input []byte) (*SatPoint, error) {
 
 	idx := utils.BytesToInt(index)
 	return &SatPoint{
-		OutPoint: Outpoint{
+		OutPoint: model.Outpoint{
 			TxidBytes:   hashByte,
 			TxidStr:     string(hashByte),
 			OutputIndex: uint32(idx),
