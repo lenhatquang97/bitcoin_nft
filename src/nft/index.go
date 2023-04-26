@@ -10,6 +10,7 @@ import (
 	"github.com/m25lab/bitcoin_nft/src/layer1"
 	"github.com/m25lab/bitcoin_nft/src/model"
 
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
@@ -45,7 +46,24 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 
 // Need to improve
 func Open(opt *Options) (*Index, error) {
-	return nil, nil
+	client, err := layer1.GetBitcoinRPCClient()
+	if err != nil {
+		return nil, err
+	}
+
+	//Step 3: Get height whether can connect to BTCD or not?
+	height, err := client.GetBlockCount()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Index{
+		GenesisBlockCoinbaseTransaction: chaincfg.TestNet3Params.GenesisBlock.Transactions[0],
+		GenesisBlockCoinbaseTxID:        "0",
+		Client:                          client,
+		FirstInscriptionHeight:          height,
+		RpcUrl:                          "localhost:8334",
+	}, nil
 }
 
 // **

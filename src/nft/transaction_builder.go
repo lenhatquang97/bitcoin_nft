@@ -73,15 +73,22 @@ func BuildTransactionWithValue(outGoing SatPoint,
 		return nil, errors.New("")
 	}
 
+	utxos := make(map[string]string)
+	for k := range amount {
+		utxos[k] = ""
+	}
+
 	transactionBuilder := &TransactionBuilder{
-		OutGoing:        outGoing,
-		Inscriptions:    inscriptions,
-		Amounts:         amount,
-		Recipient:       recipient,
-		ChangeAddresses: change,
-		FeeRate:         feeRate,
-		Target:          enum.Target.Value,
-		OutputValue:     outputValue,
+		OutGoing:            outGoing,
+		Inscriptions:        inscriptions,
+		Amounts:             amount,
+		Utxos:               utxos,
+		Recipient:           recipient,
+		ChangeAddresses:     change,
+		FeeRate:             feeRate,
+		Target:              enum.Target.Value,
+		UnusedChangeAddress: change,
+		OutputValue:         outputValue,
 	}
 
 	return BuildTransaction(transactionBuilder)

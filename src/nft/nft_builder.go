@@ -3,18 +3,22 @@ package nft
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/m25lab/bitcoin_nft/src/inscript"
 	"github.com/m25lab/bitcoin_nft/src/model"
 
 	//"github.com/btcsuite/btcd/btcutil/schnorr/musig2"
 
+	_ "github.com/btcsuite/btcd/database/ffldb"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
@@ -125,7 +129,7 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 		}
 	}
 
-	satpointSerialize := satpoint.Serialize()
+	satpointSerialize := satP.Serialize()
 	for inscribedSatpoint, inscriptionId := range inscriptions {
 		if inscribedSatpoint == satpointSerialize {
 			return nil, nil, fmt.Errorf("sat at %v sat poiont already inscribed", satpoint)
@@ -158,15 +162,18 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 
 	ctrlBlock := tapRootSpendInfo.LeafMerkleProofs[0].ToControlBlock(pubKey)
 	rootHash := tapRootSpendInfo.RootNode.TapHash()
-	outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
-	commitTxAddress, _ := btcutil.NewAddressTaproot(outputKey.SerializeUncompressed(), network) //???
+	//outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
+	commitTxAddress, err := btcutil.NewAddressTaproot(rootHash[:], network) //???
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
 	_, revealFee := BuildRevealTransaction(&txscript.ControlBlock{
 		InternalKey:     ctrlBlock.InternalKey,
 		OutputKeyYIsOdd: ctrlBlock.OutputKeyYIsOdd,
 		LeafVersion:     ctrlBlock.LeafVersion,
 		InclusionProof:  ctrlBlock.InclusionProof,
-	}, revealFeeRate, nil, &wire.TxOut{
+	}, revealFeeRate, &wire.OutPoint{}, &wire.TxOut{
 		Value:    0,
 		PkScript: []byte(destination),
 	}, revealScript)
@@ -180,7 +187,8 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 	var output *wire.TxOut
 	var vout int
 	for v, txOut := range unsignedCommitTx.TxOut {
-		if bytes.Equal(output.PkScript, commitTxAddress.ScriptAddress()) {
+		scriptAdd := []byte(commitTxAddress.String())
+		if bytes.Equal(txOut.PkScript, scriptAdd) {
 			output = txOut
 			vout = v
 			break
@@ -217,17 +225,72 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 		err := fmt.Errorf("commit transaction output would be dust")
 		return nil, nil, err
 	}
-
-	hashCache := txscript.NewTxSigHashes(revealTx, blockchain.NewUtxoViewpoint())
-	sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
-		LeafVersion: txscript.TaprootLeafMask,
-		Script:      revealScript,
-	}, txscript.SigHashDefault, privKey)
-
+	db, err := LoadBlockDB()
 	if err != nil {
 		return nil, nil, err
 	}
+	defer db.Close()
 
-	fmt.Println(sig)
+	viewPoint, err := blockchain.New(&blockchain.Config{
+		DB:          db,
+		ChainParams: &chaincfg.MainNetParams,
+		TimeSource:  blockchain.NewMedianTime(),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	outputFetcher, err := viewPoint.FetchUtxoView(btcutil.NewTx(revealTx))
+	if err != nil {
+		return nil, nil, err
+	}
+	hashCache := txscript.NewTxSigHashes(revealTx, outputFetcher)
+	fmt.Println(hashCache)
+	// sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
+	// 	LeafVersion: txscript.TaprootLeafMask,
+	// 	Script:      revealScript,
+	// }, txscript.SigHashDefault, privKey)
+
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	// fmt.Println(sig)
 	return unsignedCommitTx, revealTx, nil
+}
+
+func BlockDbPath(dbType string) string {
+	// The database name is based on the database type.
+	dbName := "blocks_" + dbType
+	if dbType == "sqlite" {
+		dbName = dbName + ".db"
+	}
+	homeDir, _ := os.UserHomeDir()
+	dbPath := filepath.Join(homeDir, "m25", dbName)
+	return dbPath
+}
+
+// ffldb
+func LoadBlockDB() (database.DB, error) {
+	// The database name is based on the database type.
+	dbType := "ffldb"
+	dbPath := BlockDbPath(dbType)
+	fmt.Println(dbPath)
+	db, err := database.Open(dbType, dbPath, wire.TestNet3)
+	if err != nil {
+		// Return the error if it's not because the database doesn't
+		// exist.
+		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
+			database.ErrDbDoesNotExist {
+
+			return nil, err
+		}
+
+		db, err = database.Create(dbType, dbPath, wire.TestNet3)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("Hello")
+	}
+
+	return db, nil
 }

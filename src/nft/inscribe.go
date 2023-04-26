@@ -21,7 +21,7 @@ type Output struct {
 }
 
 type Inscribe struct {
-	SatPoint      SatPoint
+	SatPoint      *SatPoint
 	FeeRate       float64
 	CommitFeeRate float64
 	File          string
@@ -32,13 +32,12 @@ type Inscribe struct {
 }
 
 func Run(inscribe *Inscribe, opt *Options) error {
+	//index, err := Open(opt)
+	//if err != nil {
+	//	return nil
+	//}
+
 	inscription, err := inscript.NftFromFile(inscribe.File)
-	if err != nil {
-		return err
-	}
-
-	index, err := Open(opt)
-
 	if err != nil {
 		return err
 	}
@@ -58,10 +57,12 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	inscriptions, err := GetInscription(index)
-	if err != nil {
-		return err
-	}
+	//GetInscription(index)
+	//inscriptions, err := GetInscription(index)
+	//if err != nil {
+	//	return err
+	//}
+	inscriptions := make(map[string]InscriptionId)
 
 	firstAddress, err := lncli.NewAddress(ctx, &newAddressReq) // bech32m
 	if err != nil {
@@ -93,7 +94,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	if commitFeeRate < 0 {
 		commitFeeRate = inscribe.FeeRate
 	}
-	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
 	if err != nil {
 		return err
 	}

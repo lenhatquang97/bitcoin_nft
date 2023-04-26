@@ -1,0 +1,126 @@
+potluck@potluck-VivoBook-ASUSLaptop-X412FA-A412FA:~$ tarocli assets mint --type normal --name firstMint --supply 1000 –enable_emission false --meta "fantastic money" --skip_batch
+{
+    "batch_key": "025b3bb93ea218f5d6d4aecdcf7f0a99202278baa831e551124f36a75624954c96"
+}
+potluck@potluck-VivoBook-ASUSLaptop-X412FA-A412FA:~$ tarocli assets list
+{
+    "assets": [
+        {
+            "version": 0,
+            "asset_genesis": {
+                "genesis_point": "cf4c304f0b2485b894fff48a11c1f19b15d3f15dd020fff6f676a67e8f2d6b85:0",
+                "name": "firstMint",
+                "meta": "66616e746173746963206d6f6e6579",
+                "asset_id": "7fe6e901f1f3696fe595749c46938f211b211475bdb05ef5dccedae0376dcd97",
+                "output_index": 0,
+                "genesis_bootstrap_info": "856b2d8f7ea676f6f6ff20d05df1d3159bf1c1118af4ff94b885240b4f304ccf000000000966697273744d696e740f66616e746173746963206d6f6e65790000000000",
+                "version": 0
+            },
+            "asset_type": "NORMAL",
+            "amount": "1000",
+            "lock_time": 0,
+            "relative_lock_time": 0,
+            "script_version": 0,
+            "script_key": "025216559d8a2559eb9cd6ae94f87c0fb89d360d1c16a9ca3ec79fa5b67e2a0601",
+            "asset_family": null,
+            "chain_anchor": {
+                "anchor_tx": "02000000000101856b2d8f7ea676f6f6ff20d05df1d3159bf1c1118af4ff94b885240b4f304ccf0000000000ffffffff02e8030000000000002251200bd496b5bd6cb9a2de47f3519cfc0958709d6abaefa77344203f3edc17af1e855fb4050000000000160014be1079976dda68c89926c05c4c9441a24575273b0247304402203080608e9acc8abf7fb2914e34cb17d3980b59be1dc3043609d10dc800cf872b02200a9bcdbfedf86b558e6aeb4534707f1b56cf8d4005bd44a4d1271563a3c14d84012102c4e8e6bc3decf19e455526be82d7c79bccbf9a6d736c051665aba1353ce7bb4600000000",
+                "anchor_txid": "4df43501aec467cd27f513845c0fdce09088b759ba17b42fc00d6b764b4001da",
+                "anchor_block_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "anchor_outpoint": "da01404b766b0dc02fb417ba59b78890e0dc0f5c8413f527cd67c4ae0135f44d:0",
+                "internal_key": "025b3bb93ea218f5d6d4aecdcf7f0a99202278baa831e551124f36a75624954c96"
+            }
+        },
+        {
+            "version": 0,
+            "asset_genesis": {
+                "genesis_point": "cf4c304f0b2485b894fff48a11c1f19b15d3f15dd020fff6f676a67e8f2d6b85:0",
+                "name": "beefbux",
+                "meta": "66616e746173746963206d6f6e6579",
+                "asset_id": "7d032cc6103c2c277c6b276544bf8a59c1110a944d59b89ef50a19b8f574f6e3",
+                "output_index": 0,
+                "genesis_bootstrap_info": "856b2d8f7ea676f6f6ff20d05df1d3159bf1c1118af4ff94b885240b4f304ccf0000000007626565666275780f66616e746173746963206d6f6e65790000000000",
+                "version": 0
+            },
+            "asset_type": "NORMAL",
+            "amount": "1000",
+            "lock_time": 0,
+            "relative_lock_time": 0,
+            "script_version": 0,
+            "script_key": "020862f4a60ab6107efe0335384b2ddb7477d8fa99188e8e664df46562fd62dea9",
+            "asset_family": null,
+            "chain_anchor": {
+                "anchor_tx": "02000000000101856b2d8f7ea676f6f6ff20d05df1d3159bf1c1118af4ff94b885240b4f304ccf0000000000ffffffff02e8030000000000002251200bd496b5bd6cb9a2de47f3519cfc0958709d6abaefa77344203f3edc17af1e855fb4050000000000160014be1079976dda68c89926c05c4c9441a24575273b0247304402203080608e9acc8abf7fb2914e34cb17d3980b59be1dc3043609d10dc800cf872b02200a9bcdbfedf86b558e6aeb4534707f1b56cf8d4005bd44a4d1271563a3c14d84012102c4e8e6bc3decf19e455526be82d7c79bccbf9a6d736c051665aba1353ce7bb4600000000",
+                "anchor_txid": "4df43501aec467cd27f513845c0fdce09088b759ba17b42fc00d6b764b4001da",
+                "anchor_block_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "anchor_outpoint": "da01404b766b0dc02fb417ba59b78890e0dc0f5c8413f527cd67c4ae0135f44d:0",
+                "internal_key": "025b3bb93ea218f5d6d4aecdcf7f0a99202278baa831e551124f36a75624954c96"
+            }
+        }
+    ]
+}
+
+
+potluck@potluck-VivoBook-ASUSLaptop-X412FA-A412FA:~$ tarocli addrs new --genesis_bootstrap_info 54b5a3f38e0d1f44343422750454833408634081a465fc3339117228802cc37500000002076c656f636f696e0f66616e746173746963206d6f6e65790000000000 --amt 100
+{
+    "encoded": "tarotb1qqqsqqjp2j668uuwp505gdp5yf6sg4yrxsyxxsyp53jlcveez9ez3qpvcd6sqqqqqgrkcet0vdhkjms0veskuarpwd6xjceqd4hkueteqqqqqqqqqssd7grjl4aqh9rav459uu66tae47u97k5tl5cf04ltvgag6j8jeqaqxyppg2ept5etfcs0w2ukny9lntz4cnxx7le06tx0c9skquarn35l3kzqpvsm47yfk",
+    "asset_id": "33644efe039d3569e6bafb07bc8f5959578a909e9c5e1c15949c986c54edbf35",
+    "asset_type": "NORMAL",
+    "amount": "100",
+    "family_key": null,
+    "script_key": "02df2072fd7a0b947d65685e735a5f735f70beb517fa612fafd6c4751a91e59074",
+    "internal_key": "024285642ba6569c41ee572d3217f358ab8998defe5fa599f82c2c0e74738d3f1b",
+    "taproot_output_key": "4e2e3b9c65f2ff7835d461e9f86ae0ae6e7229c2fed8b9bef3860233f9d467ab"
+}
+
+
+tarocli addrs new --genesis_bootstrap_info 856b2d8f7ea676f6f6ff20d05df1d3159bf1c1118af4ff94b885240b4f304ccf0000000007626565666275780f66616e746173746963206d6f6e65790000000000 --amt 100
+{
+    "encoded": "tarotb1qqqsqqjps44jmrm75em0dahlyrg9muwnzkdlrsg33t60l99cs5jqknesfn8sqqqqqqrkyet9ve3827q0veskuarpwd6xjceqd4hkueteqqqqqqqqqss9ze8gm56gt90y0vazmldad0qlenyckmdqqtzu05efnasv5cmkerqxyzrvktq406u43kmgdtnwvkrxjau6vrmpqrpl64ttkz4ffrju5seuqzqpvszhzzw7",
+    "asset_id": "7d032cc6103c2c277c6b276544bf8a59c1110a944d59b89ef50a19b8f574f6e3",
+    "asset_type": "NORMAL",
+    "amount": "100",
+    "family_key": null,
+    "script_key": "025164e8dd348595e47b3a2dfdbd6bc1fccc98b6da002c5c7d3299f60ca6376c8c",
+    "internal_key": "0286cb2c157eb958db686ae6e658669779a60f6100c3fd556bb0aa948e5ca433c0",
+    "taproot_output_key": "5bfc259248f6717ee9ba13e8cb64f404ec13ce0116bce575c5594ac158dec25d"
+}
+potluck@potluck-VivoBook-ASUSLaptop-X412FA-A412FA:~$ tarocli assets send --addr tarotb1qqqsqqjps44jmrm75em0dahlyrg9muwnzkdlrsg33t60l99cs5jqknesfn8sqqqqqqrkyet9ve3827q0veskuarpwd6xjceqd4hkueteqqqqqqqqqss9ze8gm56gt90y0vazmldad0qlenyckmdqqtzu05efnasv5cmkerqxyzrvktq406u43kmgdtnwvkrxjau6vrmpqrpl64ttkz4ffrju5seuqzqpvszhzzw7
+{
+    "transfer_txid": "8c57de0ac5f204903eeeb459092b2a701897a74c3859243076bc5325b29c3b08",
+    "anchor_output_index": 0,
+    "transfer_tx_bytes": "020000000001024df43501aec467cd27f513845c0fdce09088b759ba17b42fc00d6b764b4001da0100000000ffffffff4df43501aec467cd27f513845c0fdce09088b759ba17b42fc00d6b764b4001da00000000000000000003e8030000000000002251205399a27cf1c0a3166f8fdddce5266068265f833eccec48fc7f238eed57c6c2b9e8030000000000002251205bfc259248f6717ee9ba13e8cb64f404ec13ce0116bce575c5594ac158dec25d77af0500000000001600149185bd43e4a1e8f0172bf4a45d6ceae9b20eabf60247304402204964d6a84c40a99571f05990ca63dd7a7451d8ed601929a9e71c5cc09d093e2902204b991ac527219e377427f5c5beb5a42d5185ef6815b66ec4e63fd84b92947595012103218ddb26a8760e67aa411fbc2a3e14589234b4ab6c4d163baf47dd4e6cc0f7c40140adb0ba23f618d64162b6493dbc66cc4b135db7377a99e9de40b7ddc6f7689cede5fbcf55a36a5068ba6ce283ac1f31b05a4ff47a1f739704097bbc893e0df22c00000000",
+    "taro_transfer": {
+        "old_taro_root": "b1dcb44818794d2924e4871ddc658d797146e86080c1c71adaa0e99588676da7",
+        "new_taro_root": "e2dca738b0c625f2c06d92ca7c66f1d4e6809b037a498361b6b65055452eaa95",
+        "prev_inputs": [
+            {
+                "anchor_point": "da01404b766b0dc02fb417ba59b78890e0dc0f5c8413f527cd67c4ae0135f44d:0",
+                "asset_id": "7d032cc6103c2c277c6b276544bf8a59c1110a944d59b89ef50a19b8f574f6e3",
+                "script_key": "020862f4a60ab6107efe0335384b2ddb7477d8fa99188e8e664df46562fd62dea9",
+                "amount": "1000"
+            }
+        ],
+        "new_outputs": [
+            {
+                "anchor_point": "083b9cb22553bc76302459384ca79718702a2b0959b4ee3e9004f2c50ade578c:0",
+                "asset_id": "7d032cc6103c2c277c6b276544bf8a59c1110a944d59b89ef50a19b8f574f6e3",
+                "script_key": "025164e8dd348595e47b3a2dfdbd6bc1fccc98b6da002c5c7d3299f60ca6376c8c",
+                "amount": "900",
+                "new_proof_blob": null,
+                "split_commit_proof": null
+            },
+            {
+                "anchor_point": "083b9cb22553bc76302459384ca79718702a2b0959b4ee3e9004f2c50ade578c:0",
+                "asset_id": "7d032cc6103c2c277c6b276544bf8a59c1110a944d59b89ef50a19b8f574f6e3",
+                "script_key": "025164e8dd348595e47b3a2dfdbd6bc1fccc98b6da002c5c7d3299f60ca6376c8c",
+                "amount": "100",
+                "new_proof_blob": null,
+                "split_commit_proof": null
+            }
+        ]
+    },
+    "total_fee_sats": "0"
+}
+
+
