@@ -211,6 +211,7 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 		},
 		revealScript,
 	)
+
 	if revealTx.TxOut[0].Value < int64(fee) {
 		return nil, nil, fmt.Errorf("not enough to pay fee")
 	} else {

@@ -1,23 +1,28 @@
 package main
 
 import (
-	"fmt"
+	"encoding/hex"
 
-	"github.com/m25lab/bitcoin_nft/src/nft"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/m25lab/bitcoin_nft/src/wallet"
+)
+
+const (
+	testTaprootKeyFamily = 77
+)
+
+var (
+	hexDecode = func(keyStr string) []byte {
+		keyBytes, _ := hex.DecodeString(keyStr)
+		return keyBytes
+	}
+
+	dummyInternalKey, _ = btcec.ParsePubKey(hexDecode(
+		"03464805f5468e294d88cf15a3f06aef6c89d63ef1bd7b42db2e0c74c1ac" +
+			"eb90fe",
+	))
 )
 
 func main() {
-	err := nft.Run(&nft.Inscribe{
-		SatPoint:      nil,
-		FeeRate:       1.1,
-		CommitFeeRate: 1,
-		File:          "./taro_note.txt",
-		Destination:   "bcrt1qjrdns4f5zwkv29ln86plqzs092yd5fg6nsz8re",
-		DryRun:        false,
-	}, &nft.Options{})
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("Successful")
-	}
+	wallet.SendCoinWithTaproot(testTaprootKeyFamily, dummyInternalKey)
 }
