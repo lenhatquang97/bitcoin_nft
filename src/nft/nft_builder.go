@@ -2,11 +2,11 @@ package nft
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
@@ -225,35 +225,19 @@ func CreateInscriptionTransaction(satpoint *SatPoint,
 		err := fmt.Errorf("commit transaction output would be dust")
 		return nil, nil, err
 	}
-	db, err := LoadBlockDB()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer db.Close()
 
-	viewPoint, err := blockchain.New(&blockchain.Config{
-		DB:          db,
-		ChainParams: &chaincfg.MainNetParams,
-		TimeSource:  blockchain.NewMedianTime(),
-	})
+	prevOutputFetcher := txscript.NewCannedPrevOutputFetcher(unsignedCommitTx.TxOut[0].PkScript, unsignedCommitTx.TxOut[0].Value)
+	hashCache := txscript.NewTxSigHashes(revealTx, prevOutputFetcher)
+	sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
+		LeafVersion: txscript.TaprootLeafMask,
+		Script:      revealScript,
+	}, txscript.SigHashDefault, privKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	outputFetcher, err := viewPoint.FetchUtxoView(btcutil.NewTx(revealTx))
-	if err != nil {
-		return nil, nil, err
-	}
-	hashCache := txscript.NewTxSigHashes(revealTx, outputFetcher)
-	fmt.Println(hashCache)
-	// sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
-	// 	LeafVersion: txscript.TaprootLeafMask,
-	// 	Script:      revealScript,
-	// }, txscript.SigHashDefault, privKey)
 
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	// fmt.Println(sig)
+	fmt.Println(hex.EncodeToString(sig))
+
 	return unsignedCommitTx, revealTx, nil
 }
 

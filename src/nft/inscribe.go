@@ -114,42 +114,40 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		unsignedCommitTxHash := unsignedCommitTx.TxHash()
+		// signRawCommitTx, err := lncli.SignMessage(ctx, &lnrpc.SignMessageRequest{
+		// 	Msg: unsignedCommitTxHash.CloneBytes(),
+		// })
+		// if err != nil {
+		// 	return err
+		// }
 
-		signRawCommitTx, err := lncli.SignMessage(ctx, &lnrpc.SignMessageRequest{
-			Msg: unsignedCommitTxHash.CloneBytes(),
-		})
-		if err != nil {
-			return err
-		}
+		// commit, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
+		// 	Data: []byte(signRawCommitTx.String()),
+		// 	Peer: []byte(revealTxDestination),
+		// })
 
-		commit, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
-			Data: []byte(signRawCommitTx.String()),
-			Peer: []byte(revealTxDestination),
-		})
+		// if err != nil {
+		// 	return err
+		// }
 
-		if err != nil {
-			return err
-		}
+		// revealTxHash := revealTx.TxHash()
+		// reveal, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
+		// 	Data: revealTxHash.CloneBytes(),
+		// 	Peer: []byte(revealTxDestination),
+		// })
 
-		revealTxHash := revealTx.TxHash()
-		reveal, err := lncli.SendCustomMessage(ctx, &lnrpc.SendCustomMessageRequest{
-			Data: revealTxHash.CloneBytes(),
-			Peer: []byte(revealTxDestination),
-		})
+		// if err != nil {
+		// 	return err
+		// }
 
-		if err != nil {
-			return err
-		}
+		// output := Output{
+		// 	Commit:        commit.String(),
+		// 	Reveal:        reveal.String(),
+		// 	InscriptionID: InscriptionId{},
+		// 	Fee:           int64(fees),
+		// }
 
-		output := Output{
-			Commit:        commit.String(),
-			Reveal:        reveal.String(),
-			InscriptionID: InscriptionId{},
-			Fee:           int64(fees),
-		}
-
-		log.Println(output)
+		// log.Println(output)
 	}
 
 	return nil
