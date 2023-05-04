@@ -3,21 +3,20 @@ package wallet
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/lightningnetwork/lnd/input"
-	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
-	"github.com/m25lab/bitcoin_nft/src/layer1"
 	"github.com/m25lab/bitcoin_nft/src/layer2"
 	"google.golang.org/grpc"
 )
@@ -64,26 +63,12 @@ func SendCoinWithTaproot(taprootKeyFamily int32, internalKey *secp256k1.PublicKe
 	tapscript := input.TapscriptPartialReveal(internalKey, leaf2, inclusionProof[:])
 	taprootKey, _ := tapscript.TaprootKey()
 
-	p2trOutpoint, _, finalTx, err := SendToTaprootOutput(taprootKey, 1000, lndConn)
+	_, _, _, err = SendToTaprootOutput(taprootKey, 500, lndConn)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("%s:%d\n", p2trOutpoint.Hash.String(), p2trOutpoint.Index)
 
-	var buf bytes.Buffer
-	modifiedTx := finalTx.MsgTx()
-	modifiedTx.TxIn[0].Witness = append(modifiedTx.TxIn[0].Witness, []byte("Hello World"))
-	modifiedTx.Serialize(&buf)
-	txReq := &walletrpc.Transaction{
-		TxHex: buf.Bytes(),
-	}
-
-	_, err = client.PublishTransaction(ctx, txReq)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 }
 
 func SendToTaprootOutput(taprootKey *btcec.PublicKey, amount int64, lndConn *grpc.ClientConn) (*wire.OutPoint, []byte, *btcutil.Tx, error) {
@@ -95,43 +80,68 @@ func SendToTaprootOutput(taprootKey *btcec.PublicKey, amount int64, lndConn *grp
 	}
 	fmt.Printf("Destination address is %s\n", tapScriptAddr)
 
-	p2trPkScript, err := txscript.PayToAddrScript(tapScriptAddr)
+	_, err = txscript.PayToAddrScript(tapScriptAddr)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	lncli := lnrpc.NewLightningClient(lndConn)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req := &lnrpc.SendCoinsRequest{
-		Addr:   tapScriptAddr.String(),
-		Amount: amount,
-	}
-	res, err := lncli.SendCoins(ctx, req)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	fmt.Printf("Transaction id is %s\n", res.Txid)
+	wallet := walletrpc.NewWalletKitClient(lndConn)
 
-	client, err := layer1.GetBitcoinRPCClient()
-	if err != nil {
-		return nil, nil, nil, err
+	fundPsbtReq := walletrpc.FundPsbtRequest{
+		Template: &walletrpc.FundPsbtRequest_Raw{
+			Raw: &walletrpc.TxTemplate{
+				Outputs: map[string]uint64{
+					tapScriptAddr.String(): uint64(amount),
+				},
+			},
+		},
+		Fees: &walletrpc.FundPsbtRequest_SatPerVbyte{
+			SatPerVbyte: 1,
+		},
 	}
-	hash, err := chainhash.NewHashFromStr(res.Txid)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	p2trOutputIndex := layer1.GetOutputIndex(hash, tapScriptAddr.String(), client)
-	p2trOutpoint := wire.OutPoint{
-		Hash:  *hash,
-		Index: uint32(p2trOutputIndex),
-	}
-	finalTx, err := client.GetRawTransaction(hash)
+	fundRes, err := wallet.FundPsbt(ctx, &fundPsbtReq)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	return &p2trOutpoint, p2trPkScript, finalTx, nil
+	packet, err := psbt.NewFromRawBytes(bytes.NewReader(fundRes.FundedPsbt), false)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
+	var byteArray []byte
+	byteArray = append(byteArray, txscript.OP_FALSE)
+	byteArray = append(byteArray, "Hello World"...)
+	packet.UnsignedTx.TxIn[0].Witness = append(packet.UnsignedTx.TxIn[0].Witness, byteArray)
+
+	var buf bytes.Buffer
+	err = SerializePacket(packet, &buf)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	fmt.Println(hex.Dump(buf.Bytes()))
+
+	//BIG PROBLEM IN finalizePsbt: Cannot serialize with witness
+	_, err = wallet.FinalizePsbt(ctx, &walletrpc.FinalizePsbtRequest{
+		FundedPsbt: buf.Bytes(),
+	})
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// _, err = wallet.PublishTransaction(ctx, &walletrpc.Transaction{
+	// 	TxHex: response.RawFinalTx,
+	// })
+
+	// if err != nil {
+	// 	return nil, nil, nil, err
+	// }
+
+	// fmt.Println(hex.Dump(buf.Bytes()))
+	return nil, nil, nil, nil
 }
