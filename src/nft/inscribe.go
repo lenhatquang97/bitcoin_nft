@@ -52,12 +52,12 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	firstAddress, err := client.GetRawChangeAddressType("", "bech32")
+	firstAddress, err := btcutil.DecodeAddress("SeTCfjeSQYevShUDEqo59GH1V5kqnP4dg5", &chaincfg.SimNetParams)
 	if err != nil {
 		return err
 	}
 
-	secondAddress, err := client.GetRawChangeAddressType("", "bech32")
+	secondAddress, err := btcutil.DecodeAddress("SZnK16oMnqQt8Q1qLvrTpYLpkpkFG9eVRi", &chaincfg.SimNetParams)
 	if err != nil {
 		return err
 	}
@@ -71,14 +71,14 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		revealTxDestination = inscribe.Destination
 	} else {
 		// handle error
-		revealTxDestination, _ = client.GetRawChangeAddressType("", "bech32m")
+		revealTxDestination, _ = btcutil.DecodeAddress("SZnK16oMnqQt8Q1qLvrTpYLpkpkFG9eVRi", &chaincfg.SimNetParams)
 	}
 
 	commitFeeRate := inscribe.CommitFeeRate
 	if commitFeeRate < 0 {
 		commitFeeRate = inscribe.FeeRate
 	}
-	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(inscribe.SatPoint, inscription, inscriptions, &chaincfg.SimNetParams, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
 	if err != nil {
 		return err
 	}

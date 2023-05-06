@@ -193,11 +193,11 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	}
 
 	for inscribedSatpoint, inscriptionId := range inscriptions {
-		if inscribedSatpoint == *satpoint {
+		if inscribedSatpoint == *satP {
 			return nil, nil, fmt.Errorf("sat at %v sat poiont already inscribed", satpoint)
 		}
 
-		if inscribedSatpoint.OutPoint == satpoint.OutPoint {
+		if inscribedSatpoint.OutPoint == satP.OutPoint {
 			return nil, nil, fmt.Errorf("utxo already inscribed %v on sat %v", inscriptionId, inscribedSatpoint)
 		}
 	}
@@ -219,15 +219,25 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 
 	ctrlBlock := tapRootSpendInfo.LeafMerkleProofs[0].ToControlBlock(pubKey)
 	rootHash := tapRootSpendInfo.RootNode.TapHash()
-	outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
-	commitTxAddress, _ := btcutil.NewAddressTaproot(outputKey.SerializeUncompressed(), network)
+	//outputKey := txscript.ComputeTaprootOutputKey(pubKey, rootHash[:])
 
+	//witnessProg := outputKey.SerializeUncompressed()
+	commitTxAddress, err := btcutil.NewAddressTaproot(rootHash[:], network)
+	if err != nil {
+		fmt.Println(err)
+		return nil, nil, err
+	}
+
+	//OutPoint {
+	//	txid: unsigned_commit_tx.txid(),
+	//	vout: vout.try_into().unwrap(),
+	//}
 	_, revealFee := BuildRevealTransaction(&txscript.ControlBlock{
 		InternalKey:     ctrlBlock.InternalKey,
 		OutputKeyYIsOdd: ctrlBlock.OutputKeyYIsOdd,
 		LeafVersion:     ctrlBlock.LeafVersion,
 		InclusionProof:  ctrlBlock.InclusionProof,
-	}, revealFeeRate, nil, &wire.TxOut{
+	}, revealFeeRate, &wire.OutPoint{}, &wire.TxOut{
 		Value:    0,
 		PkScript: destination.ScriptAddress(),
 	}, revealScript)
