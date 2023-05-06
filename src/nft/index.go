@@ -43,8 +43,8 @@ const (
 var ctx context.Context
 
 // Done: load certs
-func LoadCerts() ([]byte, error) {
-	certHomeDir := btcutil.AppDataDir("btcd", false)
+func LoadCerts(baseFolder string) ([]byte, error) {
+	certHomeDir := btcutil.AppDataDir(baseFolder, false)
 	certs, err := ioutil.ReadFile(filepath.Join(certHomeDir, "rpc.cert"))
 	if err != nil {
 		return nil, err
@@ -89,22 +89,17 @@ func LoadConfig(opt *Options) (*os.File, error) {
 
 // Done: Only need rpcUrl
 func GetBitcoinRPCClient(opt *Options) (*rpcclient.Client, error) {
-	certs, err := LoadCerts()
-	if err != nil {
-		return nil, err
-	}
-
+	certs, _ := LoadCerts("btcwallet")
 	client, err := rpcclient.New(&rpcclient.ConnConfig{
-		Host:         opt.RpcUrl,
+		Host:         "localhost:18554",
 		Endpoint:     "ws",
-		User:         "4bmeiF7E3ny8cGf8Ok6QJZy/0pk=",
-		Pass:         "2oljjSoRFzC5Go7hCGDID6xWi+c=",
+		User:         "youruser",
+		Pass:         "SomeDecentp4ssw0rd",
 		Certificates: certs,
 	}, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	return client, nil
 }
 
