@@ -16,7 +16,7 @@ type Output struct {
 }
 
 type Inscribe struct {
-	SatPoint      src.SatPoint
+	SatPoint      *src.SatPoint
 	FeeRate       float64
 	CommitFeeRate float64
 	File          string
@@ -78,7 +78,7 @@ func Run(inscribe *Inscribe, opt *Options) error {
 	if commitFeeRate < 0 {
 		commitFeeRate = inscribe.FeeRate
 	}
-	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(&inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
+	unsignedCommitTx, revealTx, err := CreateInscriptionTransaction(inscribe.SatPoint, inscription, inscriptions, &chaincfg.TestNet3Params, utxos, commitTxChange, revealTxDestination, commitFeeRate, inscribe.FeeRate, inscribe.NoLimit)
 	if err != nil {
 		return err
 	}
