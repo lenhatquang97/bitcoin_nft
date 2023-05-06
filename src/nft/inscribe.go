@@ -52,12 +52,12 @@ func Run(inscribe *Inscribe, opt *Options) error {
 		return err
 	}
 
-	firstAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	firstAddress, err := client.GetRawChangeAddressType("", "bech32")
 	if err != nil {
 		return err
 	}
 
-	secondAddress, err := client.GetRawChangeAddressType("", "bech32m")
+	secondAddress, err := client.GetRawChangeAddressType("", "bech32")
 	if err != nil {
 		return err
 	}

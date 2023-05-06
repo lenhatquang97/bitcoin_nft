@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -17,7 +16,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
-	"github.com/m25lab/bitcoin_nft/src/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -111,11 +109,11 @@ func GetBitcoinRPCClientForWalletCommand(opt *Options, create bool) (*rpcclient.
 	}
 
 	if !create {
-		result, err := client.LoadWallet(opt.Wallet)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println(result)
+		//result, err := client.LoadWallet(opt.Wallet)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//fmt.Println(result)
 	}
 
 	return client, nil
@@ -195,25 +193,25 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 		}] = btcutil.Amount(rawTx.MsgTx().TxOut[item.Index].Value)
 	}
 
-	outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
-	for outpoint := range utxos {
-		filter := bson.M{}
-		var key []byte
-		txId := blockchain.HashToBig(&outpoint.Hash)
-		key = append(key, txId.Bytes()...)
-		key = append(key, utils.IntToBytes(int(outpoint.Index))...)
-		filter["key"] = key
-		data := outpointToValue.FindOne(context.TODO(), filter)
-		if data.Err() != nil {
-			return nil, data.Err()
-		}
-
-		var res OutPointToValue
-		err = data.Decode(&res)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//outpointToValue := index.Database.Collection(OUTPOINT_TO_VALUE)
+	//for outpoint := range utxos {
+	//	filter := bson.M{}
+	//	var key []byte
+	//	txId := blockchain.HashToBig(&outpoint.Hash)
+	//	key = append(key, txId.Bytes()...)
+	//	key = append(key, utils.IntToBytes(int(outpoint.Index))...)
+	//	filter["key"] = key
+	//	data := outpointToValue.FindOne(context.TODO(), filter)
+	//	if data.Err() != nil {
+	//		return nil, data.Err()
+	//	}
+	//
+	//	var res OutPointToValue
+	//	err = data.Decode(&res)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	return utxos, nil
 }
@@ -532,6 +530,8 @@ func GetBlockTime(index *Index) {
 
 // impl soon (1)
 func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
+	satPointMap := make(map[src.SatPoint]src.InscriptionId)
+	return satPointMap, nil
 	satPointToInscriptionId := index.Database.Collection(SAT_TO_INSCRIPTION_ID)
 	if satPointToInscriptionId == nil {
 		return nil, errors.New("collection SAT_TO_INSCRIPTION_ID is null")
@@ -542,7 +542,6 @@ func GetInscription(index *Index) (map[src.SatPoint]src.InscriptionId, error) {
 		return nil, err
 	}
 
-	satPointMap := make(map[src.SatPoint]src.InscriptionId)
 	for cursor.Next(context.TODO()) {
 		var res *SatPointToInscriptionID
 		err = cursor.Decode(&res)
