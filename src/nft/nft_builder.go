@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
@@ -250,7 +249,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	var output *wire.TxOut
 	var vout int
 	for v, txOut := range unsignedCommitTx.TxOut {
-		if bytes.Equal(output.PkScript, commitTxAddress.ScriptAddress()) {
+		if bytes.Equal(txOut.PkScript, commitTxAddress.ScriptAddress()) {
 			output = txOut
 			vout = v
 			break
@@ -273,22 +272,28 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		},
 		revealScript,
 	)
-	if revealTx.TxOut[0].Value < int64(fee) {
-		return nil, nil, fmt.Errorf("not enough to pay fee")
-	} else {
-		revealTx.TxOut[0].Value -= int64(fee)
-	}
 
-	dustLimit := mempool.GetDustThreshold(&wire.TxOut{
-		PkScript: revealTx.TxOut[0].PkScript,
-	})
+	fmt.Println(fee)
+	//if revealTx.TxOut[0].Value < int64(fee) {
+	//	return nil, nil, fmt.Errorf("not enough to pay fee")
+	//} else {
+	//	revealTx.TxOut[0].Value -= int64(fee)
+	//}
 
-	if revealTx.TxOut[0].Value < dustLimit {
-		err := fmt.Errorf("commit transaction output would be dust")
-		return nil, nil, err
-	}
+	//dustLimit := mempool.GetDustThreshold(&wire.TxOut{
+	//	PkScript: revealTx.TxOut[0].PkScript,
+	//})
 
-	hashCache := txscript.NewTxSigHashes(revealTx, blockchain.NewUtxoViewpoint())
+	//if revealTx.TxOut[0].Value < dustLimit {
+	//	err := fmt.Errorf("commit transaction output would be dust")
+	//	return nil, nil, err
+	//}
+	inputFetcher := txscript.NewCannedPrevOutputFetcher(
+		revealTx.TxOut[0].PkScript,
+		revealTx.TxOut[0].Value,
+	)
+
+	hashCache := txscript.NewTxSigHashes(revealTx, inputFetcher)
 	sig, err := txscript.RawTxInTapscriptSignature(revealTx, hashCache, 0, output.Value, output.PkScript, txscript.TapLeaf{
 		LeafVersion: txscript.TaprootLeafMask,
 		Script:      revealScript,

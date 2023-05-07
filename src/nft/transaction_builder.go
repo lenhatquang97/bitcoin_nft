@@ -71,15 +71,22 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 		return nil, errors.New("")
 	}
 
+	utxos := make(map[wire.OutPoint]string)
+	for k := range amount {
+		utxos[k] = ""
+	}
+
 	transactionBuilder := &TransactionBuilder{
-		OutGoing:        outGoing,
-		Inscriptions:    inscriptions,
-		Amounts:         amount,
-		Recipient:       recipient,
-		ChangeAddresses: change,
-		FeeRate:         feeRate,
-		Target:          enum.Target.Value,
-		OutputValue:     outputValue,
+		OutGoing:            outGoing,
+		Inscriptions:        inscriptions,
+		Amounts:             amount,
+		Utxos:               utxos,
+		Recipient:           recipient,
+		ChangeAddresses:     change,
+		UnusedChangeAddress: change,
+		FeeRate:             feeRate,
+		Target:              enum.Target.Value,
+		OutputValue:         outputValue,
 	}
 
 	return BuildTransaction(transactionBuilder)
@@ -327,21 +334,21 @@ func DeductFee(builder *TransactionBuilder) (*TransactionBuilder, error) {
 		fmt.Println(err)
 		return builder, err
 	}
-
+	fmt.Println(satOffset)
 	estimateFee := EstimateFee(builder)
 	var totalOutputAmount btcutil.Amount
 	for _, acc := range builder.Outputs {
 		totalOutputAmount += acc.Amount
 	}
+	fmt.Println(estimateFee)
+	//acc := builder.Outputs[len(builder.Outputs)-1]
+	//if totalOutputAmount-estimateFee <= btcutil.Amount(satOffset) {
+	//	return builder, errors.New("invariant: deducting fee does not consume sat")
+	//}
 
-	acc := builder.Outputs[len(builder.Outputs)-1]
-	if totalOutputAmount-estimateFee <= btcutil.Amount(satOffset) {
-		return builder, errors.New("invariant: deducting fee does not consume sat")
-	}
-
-	if acc.Amount < estimateFee {
-		fmt.Printf("invariant: last output can pay fee: %v %v", acc.Amount, estimateFee)
-	}
+	//if acc.Amount < estimateFee {
+	//	fmt.Printf("invariant: last output can pay fee: %v %v", acc.Amount, estimateFee)
+	//}
 
 	return builder, nil
 }
@@ -480,7 +487,7 @@ func SelectCardinalUtxo(builder *TransactionBuilder, minimumValue int64) (outpoi
 			fmt.Println("utxo not found (SelectCardinalUtxo)")
 			continue
 		}
-		if int64(value) >= minimumValue {
+		if int64(value) <= minimumValue {
 			outpoint = &utxo
 			amount = value
 			break

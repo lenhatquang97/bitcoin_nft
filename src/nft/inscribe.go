@@ -1,6 +1,11 @@
 package nft
 
 import (
+	"encoding/hex"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"log"
 
 	"github.com/btcsuite/btcd/btcutil"
@@ -24,6 +29,34 @@ type Inscribe struct {
 	NoLimit       bool
 	DryRun        bool
 	Destination   btcutil.Address
+}
+
+const FirstSeed = "d94155d877b8150f6215ad5bc6917989fd88888c045a21791fed17e0ae916bec"
+const FirstMiningAddress = "SZnK16oMnqQt8Q1qLvrTpYLpkpkFG9eVRi"
+
+func GetPayToAddrScript(address string) []byte {
+	rcvAddress, _ := btcutil.DecodeAddress(address, &chaincfg.SimNetParams)
+	rcvScript, _ := txscript.PayToAddrScript(rcvAddress)
+	return rcvScript
+}
+
+func GetPrivateKey(privKey string) (*btcec.PrivateKey, *btcec.PublicKey, error) {
+	privByte, err := hex.DecodeString(privKey)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	priv, pubKey := btcec.PrivKeyFromBytes(privByte) //secp256k1
+	return priv, pubKey, nil
+}
+
+func SignTx(redeemTx *wire.MsgTx, subscript []byte, privKey *secp256k1.PrivateKey) {
+	sig, err := txscript.SignatureScript(redeemTx, 0, subscript, txscript.SigHashAll, privKey, false)
+	if err != nil {
+		log.Fatalf("could not generate signature: %v", err)
+	}
+	redeemTx.TxIn[0].SignatureScript = sig
 }
 
 func Run(inscribe *Inscribe, opt *Options) error {
@@ -97,7 +130,10 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		signRawCommitTx, _, err := client.SignRawTransactionWithWallet(unsignedCommitTx)
+		privKey, _, _ := GetPrivateKey(FirstSeed)
+		SignTx(unsignedCommitTx, GetPayToAddrScript(FirstMiningAddress), privKey)
+		signRawCommitTx := unsignedCommitTx
+		signRawCommitTx, _, err := client.SignRawTransaction(unsignedCommitTx)
 		if err != nil {
 			return err
 		}

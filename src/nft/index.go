@@ -94,6 +94,7 @@ func GetBitcoinRPCClient(opt *Options) (*rpcclient.Client, error) {
 		User:         "youruser",
 		Pass:         "SomeDecentp4ssw0rd",
 		Certificates: certs,
+		Params:       "simnet",
 	}, nil)
 	if err != nil {
 		return nil, err
