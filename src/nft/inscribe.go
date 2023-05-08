@@ -2,15 +2,15 @@ package nft
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-	"log"
-
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/m25lab/bitcoin_nft/src"
+	"log"
 )
 
 type Output struct {
@@ -32,7 +32,7 @@ type Inscribe struct {
 }
 
 const FirstSeed = "d94155d877b8150f6215ad5bc6917989fd88888c045a21791fed17e0ae916bec"
-const FirstMiningAddress = "SZnK16oMnqQt8Q1qLvrTpYLpkpkFG9eVRi"
+const FirstMiningAddress = "SjH82W9xh9vihehbBcwriEZbnyD2wzkwDw"
 
 func GetPayToAddrScript(address string) []byte {
 	rcvAddress, _ := btcutil.DecodeAddress(address, &chaincfg.SimNetParams)
@@ -51,12 +51,20 @@ func GetPrivateKey(privKey string) (*btcec.PrivateKey, *btcec.PublicKey, error) 
 	return priv, pubKey, nil
 }
 
-func SignTx(redeemTx *wire.MsgTx, subscript []byte, privKey *secp256k1.PrivateKey) {
+func SignInputTx(redeemTx *wire.MsgTx, inputAddress btcutil.Address, privKey *secp256k1.PrivateKey) []byte {
+	subscript, _ := txscript.PayToAddrScript(inputAddress)
 	sig, err := txscript.SignatureScript(redeemTx, 0, subscript, txscript.SigHashAll, privKey, false)
 	if err != nil {
 		log.Fatalf("could not generate signature: %v", err)
 	}
-	redeemTx.TxIn[0].SignatureScript = sig
+	return sig
+}
+func SignOutputTx(redeemTx *wire.MsgTx, destination btcutil.Address) []byte {
+	script, err := txscript.PayToAddrScript(destination)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return script
 }
 
 func Run(inscribe *Inscribe, opt *Options) error {
@@ -130,13 +138,25 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		privKey, _, _ := GetPrivateKey(FirstSeed)
-		SignTx(unsignedCommitTx, GetPayToAddrScript(FirstMiningAddress), privKey)
-		signRawCommitTx := unsignedCommitTx
-		signRawCommitTx, _, err := client.SignRawTransaction(unsignedCommitTx)
+		firstAddressObj, _ := btcutil.DecodeAddress(FirstMiningAddress, &chaincfg.SimNetParams)
+		err := client.WalletPassphrase("12345", 3)
 		if err != nil {
 			return err
 		}
+		privKeyDump, err := client.DumpPrivKey(firstAddressObj)
+		if err != nil {
+			return err
+		}
+
+		unsignedCommitTx.TxIn[0].SignatureScript = SignInputTx(unsignedCommitTx, firstAddressObj, privKeyDump.PrivKey)
+		unsignedCommitTx.TxOut[0].PkScript = SignOutputTx(unsignedCommitTx, inscribe.Destination)
+
+		signRawCommitTx, _, err := client.SignRawTransaction(unsignedCommitTx)
+
+		if err != nil {
+			return err
+		}
+		fmt.Println(signRawCommitTx.TxHash().String())
 
 		commit, err := client.SendRawTransaction(signRawCommitTx, false)
 		if err != nil {

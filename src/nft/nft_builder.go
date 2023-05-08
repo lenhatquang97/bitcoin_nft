@@ -247,11 +247,9 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 	}
 
 	var output *wire.TxOut
-	var vout int
-	for v, txOut := range unsignedCommitTx.TxOut {
+	for _, txOut := range unsignedCommitTx.TxOut {
 		if bytes.Equal(txOut.PkScript, commitTxAddress.ScriptAddress()) {
 			output = txOut
-			vout = v
 			break
 		}
 	}
@@ -265,7 +263,7 @@ func CreateInscriptionTransaction(satpoint *src.SatPoint,
 		revealFeeRate,
 		&wire.OutPoint{
 			Hash:  unsignedCommitTx.TxHash(),
-			Index: uint32(vout),
+			Index: 0,
 		}, &wire.TxOut{
 			PkScript: destination.ScriptAddress(),
 			Value:    output.Value,

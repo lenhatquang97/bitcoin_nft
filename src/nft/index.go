@@ -17,9 +17,6 @@ import (
 	"github.com/m25lab/bitcoin_nft/src"
 	"github.com/m25lab/bitcoin_nft/src/enum"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // collection
@@ -128,19 +125,6 @@ func Open(opt *Options) (*Index, error) {
 		return nil, err
 	}
 
-	//Step 2: Connect MongoDB
-	ctx = context.TODO() // init context global
-	uriConn := "mongodb+srv://tuankiet:kietlu1712@bankaccount.lfuju.mongodb.net/?retryWrites=true&w=majority"
-	option := options.Client().ApplyURI(uriConn)
-	mongoclient, err := mongo.Connect(ctx, option)
-	if err != nil {
-		return nil, err
-	}
-	err = mongoclient.Ping(ctx, readpref.Primary())
-	if err != nil {
-		return nil, err
-	}
-
 	//Step 3: Get height whether can connect to BTCD or not?
 	height, err := client.GetBlockCount()
 	if err != nil {
@@ -165,7 +149,7 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 		return nil, err
 	}
 
-	for txid, item := range unspentRes {
+	for _, item := range unspentRes {
 		txHash, err := chainhash.NewHashFromStr(item.TxID)
 		if err != nil {
 			fmt.Println(err)
@@ -174,7 +158,7 @@ func GetUnspentOutput(index *Index) (map[wire.OutPoint]btcutil.Amount, error) {
 
 		utxos[wire.OutPoint{
 			Hash:  *txHash,
-			Index: uint32(txid),
+			Index: item.Vout,
 		}] = btcutil.Amount(item.Amount)
 	}
 

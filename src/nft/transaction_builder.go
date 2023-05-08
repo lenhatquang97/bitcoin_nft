@@ -88,7 +88,6 @@ func BuildTransactionWithValue(outGoing src.SatPoint,
 		Target:              enum.Target.Value,
 		OutputValue:         outputValue,
 	}
-
 	return BuildTransaction(transactionBuilder)
 }
 
@@ -509,31 +508,45 @@ func BuildTransaction(transactionBuilder *TransactionBuilder) (*wire.MsgTx, erro
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(tx.Inputs[0])
 
 	tx, err = AlignOutGoing(tx)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println(tx.Inputs[0])
+
 	tx, err = PadAlignmentOutput(transactionBuilder)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(tx.Inputs[0])
 
 	tx, err = AddValue(transactionBuilder)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println(tx.Inputs[0])
+	fmt.Println(tx.Inputs[1])
+
 	tx, err = StripValue(tx)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println(tx.Inputs[0])
+	fmt.Println(tx.Inputs[1])
+
 	tx, err = DeductFee(tx)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(tx.Inputs[0])
+	fmt.Println(tx.Inputs[1])
 
 	return Build(tx)
 }

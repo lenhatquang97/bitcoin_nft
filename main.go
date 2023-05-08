@@ -10,6 +10,7 @@ import (
 
 func main() {
 	addr, err := btcutil.DecodeAddress("SeTCfjeSQYevShUDEqo59GH1V5kqnP4dg5", &chaincfg.SimNetParams)
+	fmt.Println(addr.String())
 	if err != nil {
 		fmt.Println(err)
 	}
