@@ -3,6 +3,8 @@ package nft
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
+
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -10,7 +12,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/m25lab/bitcoin_nft/src"
-	"log"
 )
 
 type Output struct {
@@ -138,45 +139,50 @@ func Run(inscribe *Inscribe, opt *Options) error {
 
 		log.Println(output)
 	} else {
-		firstAddressObj, _ := btcutil.DecodeAddress(FirstMiningAddress, &chaincfg.SimNetParams)
-		err := client.WalletPassphrase("12345", 3)
-		if err != nil {
-			return err
-		}
-		privKeyDump, err := client.DumpPrivKey(firstAddressObj)
+		err := client.WalletPassphrase("12345", 1)
 		if err != nil {
 			return err
 		}
 
-		unsignedCommitTx.TxIn[0].SignatureScript = SignInputTx(unsignedCommitTx, firstAddressObj, privKeyDump.PrivKey)
+		sourceAddress, err := client.GetAccountAddress("default")
+		if err != nil {
+			return err
+		}
+
+		privKey, err := client.DumpPrivKey(sourceAddress)
+		if err != nil {
+			return err
+		}
+
+		unsignedCommitTx.TxIn[0].SignatureScript = SignInputTx(unsignedCommitTx, sourceAddress, privKey.PrivKey)
 		unsignedCommitTx.TxOut[0].PkScript = SignOutputTx(unsignedCommitTx, inscribe.Destination)
 
 		signRawCommitTx, _, err := client.SignRawTransaction(unsignedCommitTx)
-
 		if err != nil {
 			return err
 		}
-		fmt.Println(signRawCommitTx.TxHash().String())
 
 		commit, err := client.SendRawTransaction(signRawCommitTx, false)
 		if err != nil {
 			return err
 		}
-
-		reveal, err := client.SendRawTransaction(revealTx, false)
-		if err != nil {
-			return err
-		}
-
-		output := Output{
-			Commit:        commit.String(),
-			Reveal:        reveal.String(),
-			InscriptionID: src.InscriptionId{},
-			Fee:           int64(fees),
-		}
-
-		log.Println(output)
+		fmt.Println(commit)
 	}
+
+	// 	reveal, err := client.SendRawTransaction(revealTx, false)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	output := Output{
+	// 		Commit:        commit.String(),
+	// 		Reveal:        reveal.String(),
+	// 		InscriptionID: src.InscriptionId{},
+	// 		Fee:           int64(fees),
+	// 	}
+
+	// 	log.Println(output)
+	// }
 
 	return nil
 }
